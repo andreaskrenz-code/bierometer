@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bierometer Admin</title>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  font-family: Arial, sans-serif;
+  background: #101010;
+  color: #fff;
+}
+
+body {
+  padding: 16px;
+}
+
+.app {
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 32px;
+  color: #ffd400;
+}
+
+.subtitle {
+  margin-top: 8px;
+  color: #ccc;
+  font-size: 15px;
+}
+
+.card {
+  background: #1c1c1c;
+  border: 1px solid #333;
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.status-card {
+  background: linear-gradient(180deg, #2b2b2b, #151515);
+  border: 2px solid #ffd400;
+  box-shadow: 0 0 18px rgba(255, 212, 0, 0.2);
+}
+
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 20px;
+  margin: 9px 0;
+}
+
+.status-row strong {
+  color: #ffd400;
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-wrap {
+  margin-top: 14px;
+  height: 18px;
+  background: #000;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid #444;
+}
+
+.progress {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #8b0000, #ffd400);
+  transition: width 0.4s ease;
+}
+
+.section-title {
+  font-size: 19px;
+  font-weight: bold;
+  color: #ffd400;
+  margin-bottom: 12px;
+}
+
+.input-row {
+  display: flex;
+  gap: 10px;
+}
+
+input {
+  width: 100%;
+  padding: 15px;
+  border-radius: 14px;
+  border: 1px solid #555;
+  background: #080808;
+  color: #fff;
+  font-size: 20px;
+}
+
+button {
+  border: none;
+  border-radius: 16px;
+  padding: 16px;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  color: #111;
+  background: #ffd400;
+  min-height: 56px;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+button.danger {
+  width: 100%;
+  background: #b00020;
+  color: white;
+}
+
+button.secondary {
+  width: 100%;
+  background: #fff0a0;
+  color: #111;
+}
+
+.feedback {
+  min-height: 24px;
+  text-align: center;
+  font-size: 15px;
+  color: #b8ffb8;
+  margin-bottom: 12px;
+}
+
+.feedback.error {
+  color: #ff9b9b;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.log {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.log-entry {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 10px;
+  background: #111;
+  border: 1px solid #292929;
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 14px;
+  color: #ddd;
+}
+
+.log-entry strong {
+  color: #ffd400;
+}
+
+.log-typ {
+  grid-column: 1 / 3;
+  color: #aaa;
+  font-size: 13px;
+}
+
+.small-note {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #aaa;
+  text-align: center;
+}
+
+@media (max-width: 420px) {
+  body {
+    padding: 12px;
+  }
+
+  h1 {
+    font-size: 28px;
+  }
+
+  .status-row {
+    font-size: 18px;
+  }
+
+  .input-row {
+    flex-direction: column;
+  }
+
+  button {
+    width: 100%;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+  <div class="header">
+    <h1>Bierometer Admin</h1>
+    <div class="subtitle">Soll-Wert setzen, Stand prüfen und zurücksetzen</div>
+  </div>
+
+  <div class="card status-card">
+    <div class="status-row">
+      <span>SOLL</span>
+      <strong><span id="planWert">0</span> Liter</strong>
+    </div>
+
+    <div class="status-row">
+      <span>IST</span>
+      <strong><span id="istWert">0</span> Liter</strong>
+    </div>
+
+    <div class="status-row">
+      <span>Erreicht</span>
+      <strong><span id="prozentWert">0</span>%</strong>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress" id="progressBar"></div>
+    </div>
+  </div>
+
+  <div class="feedback" id="feedback"></div>
+
+  <div class="card">
+    <div class="section-title">Soll-Wert setzen</div>
+
+    <div class="input-row">
+      <input id="planInput" type="number" inputmode="decimal" step="1" placeholder="z.B. 1000">
+      <button onclick="setPlan()">Speichern</button>
+    </div>
+
+    <div class="small-note">Der Soll-Wert erscheint direkt auf der OBS-Anzeige.</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Verwaltung</div>
+
+    <div class="grid">
+      <button class="danger" onclick="resetBierometer()">Bierometer komplett zurücksetzen</button>
+    </div>
+
+    <div class="small-note">Setzt Soll, Ist, Zapfstellen und letzte Buchungen zurück.</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Letzte Buchungen</div>
+    <div class="log" id="logListe">
+      <div class="small-note">Noch keine Buchungen geladen.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const socket = io();
+
+const planWert = document.getElementById("planWert");
+const istWert = document.getElementById("istWert");
+const prozentWert = document.getElementById("prozentWert");
+const progressBar = document.getElementById("progressBar");
+const feedback = document.getElementById("feedback");
+const logListe = document.getElementById("logListe");
+
+function normalisiereZahl(wert) {
+  return Number(String(wert).replace(",", "."));
+}
+
+function zeigeFeedback(text, istFehler = false) {
+  feedback.textContent = text;
+  feedback.classList.toggle("error", istFehler);
+
+  clearTimeout(window.feedbackTimer);
+  window.feedbackTimer = setTimeout(() => {
+    feedback.textContent = "";
+    feedback.classList.remove("error");
+  }, 3000);
+}
+
+async function postJSON(url, daten) {
+  const antwort = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(daten)
+  });
+
+  if (!antwort.ok) {
+    const text = await antwort.text();
+    throw new Error(text || "Fehler bei der Anfrage");
+  }
+
+  return antwort.json();
+}
+
+async function setPlan() {
+  const input = document.getElementById("planInput");
+  const liter = normalisiereZahl(input.value);
+
+  if (!Number.isFinite(liter) || liter < 0) {
+    zeigeFeedback("Bitte gültigen Soll-Wert eingeben.", true);
+    return;
+  }
+
+  try {
+    await postJSON("/api/plan", {
+      liter
+    });
+
+    input.value = "";
+    zeigeFeedback(`Soll-Wert gesetzt: ${liter} Liter`);
+  } catch (err) {
+    zeigeFeedback(err.message, true);
+  }
+}
+
+async function resetBierometer() {
+  const sicher = confirm("Bierometer wirklich komplett zurücksetzen?");
+
+  if (!sicher) {
+    return;
+  }
+
+  const nochmal = confirm("Sicher? Dadurch werden Soll, Ist, Zapfstellen und Buchungen gelöscht.");
+
+  if (!nochmal) {
+    return;
+  }
+
+  try {
+    await postJSON("/api/reset", {});
+    zeigeFeedback("Bierometer wurde zurückgesetzt.");
+  } catch (err) {
+    zeigeFeedback(err.message, true);
+  }
+}
+
+function updateAnzeige(data) {
+  const plan = Number(data.plan) || 0;
+  const ist = Number(data.ist) || 0;
+
+  planWert.textContent = Math.round(plan);
+  istWert.textContent = Math.round(ist);
+
+  const prozent = plan > 0
+    ? Math.min(100, (ist / plan) * 100)
+    : 0;
+
+  prozentWert.textContent = Math.round(prozent);
+  progressBar.style.width = `${prozent}%`;
+
+  if (Array.isArray(data.letzteBuchungen)) {
+    renderLog(data.letzteBuchungen);
+  }
+}
+
+function renderLog(buchungen) {
+  if (!buchungen.length) {
+    logListe.innerHTML = `<div class="small-note">Noch keine Buchungen vorhanden.</div>`;
+    return;
+  }
+
+  logListe.innerHTML = buchungen.map(buchung => {
+    const zeit = new Date(buchung.zeit);
+    const uhrzeit = zeit.toLocaleTimeString("de-DE", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
+    const typText = buchung.typ === "fass30"
+      ? "30 L Fass"
+      : buchung.typ === "fass50"
+        ? "50 L Fass"
+        : "freie Eingabe";
+
+    return `
+      <div class="log-entry">
+        <span>${uhrzeit} | Zapfstelle ${buchung.stelle}</span>
+        <strong>+${buchung.liter} L</strong>
+        <span class="log-typ">${typText}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+socket.on("update", data => {
+  updateAnzeige(data);
+});
+
+socket.on("reset", () => {
+  updateAnzeige({
+    plan: 0,
+    ist: 0,
+    letzteBuchungen: []
+  });
+});
+</script>
+
+</body>
+</html>
