@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bierometer Eingabe</title>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  font-family: Arial, sans-serif;
+  background: #101010;
+  color: #fff;
+}
+
+body {
+  padding: 16px;
+}
+
+.app {
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 32px;
+  color: #ffd400;
+}
+
+.stelle {
+  margin-top: 8px;
+  font-size: 24px;
+  font-weight: bold;
+  color: #fff0a0;
+}
+
+.warnung {
+  background: #3b1111;
+  border: 1px solid #ff6b6b;
+  color: #ffd0d0;
+  padding: 14px;
+  border-radius: 14px;
+  text-align: center;
+  margin-bottom: 16px;
+  display: none;
+}
+
+.card {
+  background: #1c1c1c;
+  border: 1px solid #333;
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.status-card {
+  background: linear-gradient(180deg, #2b2b2b, #151515);
+  border: 2px solid #ffd400;
+  box-shadow: 0 0 18px rgba(255, 212, 0, 0.2);
+}
+
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 19px;
+  margin: 8px 0;
+}
+
+.status-row strong {
+  color: #ffd400;
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-wrap {
+  margin-top: 14px;
+  height: 18px;
+  background: #000;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid #444;
+}
+
+.progress {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #8b0000, #ffd400);
+  transition: width 0.4s ease;
+}
+
+.section-title {
+  font-size: 19px;
+  font-weight: bold;
+  color: #ffd400;
+  margin-bottom: 12px;
+}
+
+.big-buttons {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+button {
+  width: 100%;
+  border: none;
+  border-radius: 16px;
+  padding: 18px 16px;
+  font-size: 22px;
+  font-weight: bold;
+  cursor: pointer;
+  color: #111;
+  background: #ffd400;
+  min-height: 64px;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+button.secondary {
+  background: #fff0a0;
+}
+
+.input-row {
+  display: flex;
+  gap: 10px;
+}
+
+input {
+  width: 100%;
+  padding: 15px;
+  border-radius: 14px;
+  border: 1px solid #555;
+  background: #080808;
+  color: #fff;
+  font-size: 20px;
+}
+
+.feedback {
+  min-height: 24px;
+  text-align: center;
+  font-size: 15px;
+  color: #b8ffb8;
+}
+
+.feedback.error {
+  color: #ff9b9b;
+}
+
+.log {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.log-entry {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 10px;
+  background: #111;
+  border: 1px solid #292929;
+  border-radius: 12px;
+  padding: 10px;
+  font-size: 14px;
+  color: #ddd;
+}
+
+.log-entry strong {
+  color: #ffd400;
+}
+
+.log-typ {
+  grid-column: 1 / 3;
+  color: #aaa;
+  font-size: 13px;
+}
+
+.small-note {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #aaa;
+  text-align: center;
+}
+
+@media (max-width: 390px) {
+  body {
+    padding: 12px;
+  }
+
+  h1 {
+    font-size: 28px;
+  }
+
+  .stelle {
+    font-size: 22px;
+  }
+
+  button {
+    font-size: 20px;
+  }
+
+  .status-row {
+    font-size: 18px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+  <div class="header">
+    <h1>Bierometer</h1>
+    <div class="stelle" id="stellenTitel">Zapfstelle wird geladen ...</div>
+  </div>
+
+  <div class="warnung" id="warnung">
+    Keine gültige Zapfstelle erkannt. Bitte QR-Code an Zapfstelle 1 bis 5 scannen.
+  </div>
+
+  <div class="card status-card">
+    <div class="status-row">
+      <span>SOLL</span>
+      <strong><span id="planWert">0</span> Liter</strong>
+    </div>
+
+    <div class="status-row">
+      <span>IST</span>
+      <strong><span id="istWert">0</span> Liter</strong>
+    </div>
+
+    <div class="status-row">
+      <span>Erreicht</span>
+      <strong><span id="prozentWert">0</span>%</strong>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress" id="progressBar"></div>
+    </div>
+  </div>
+
+  <div class="card" id="buchungsBereich">
+    <div class="section-title">Fass angestochen</div>
+
+    <div class="big-buttons">
+      <button onclick="fassBuchen(30)">30 Liter Fass buchen</button>
+      <button class="secondary" onclick="fassBuchen(50)">50 Liter Fass buchen</button>
+    </div>
+
+    <div class="small-note">Bitte erst drücken, wenn das Fass wirklich an dieser Zapfstelle gewechselt wurde.</div>
+  </div>
+
+  <div class="card" id="freiBereich">
+    <div class="section-title">Freie Eingabe</div>
+
+    <div class="input-row">
+      <input id="freiInput" type="number" inputmode="decimal" step="0.1" placeholder="Liter">
+      <button onclick="freieEingabe()">Buchen</button>
+    </div>
+
+    <div class="small-note">Für Korrekturen oder Sonderfälle.</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Letzte Buchungen</div>
+    <div class="log" id="logListe">
+      <div class="small-note">Noch keine Buchungen geladen.</div>
+    </div>
+  </div>
+
+  <div class="feedback" id="feedback"></div>
+</div>
+
+<script>
+const socket = io();
+
+const ANZAHL_ZAPFSTELLEN = 5;
+
+const params = new URLSearchParams(window.location.search);
+const stelle = Number(params.get("stelle"));
+
+const stellenTitel = document.getElementById("stellenTitel");
+const warnung = document.getElementById("warnung");
+const buchungsBereich = document.getElementById("buchungsBereich");
+const freiBereich = document.getElementById("freiBereich");
+
+const planWert = document.getElementById("planWert");
+const istWert = document.getElementById("istWert");
+const prozentWert = document.getElementById("prozentWert");
+const progressBar = document.getElementById("progressBar");
+const feedback = document.getElementById("feedback");
+const logListe = document.getElementById("logListe");
+
+function istGueltigeZapfstelle(wert) {
+  return Number.isInteger(wert) && wert >= 1 && wert <= ANZAHL_ZAPFSTELLEN;
+}
+
+if (istGueltigeZapfstelle(stelle)) {
+  stellenTitel.textContent = `Zapfstelle ${stelle}`;
+} else {
+  stellenTitel.textContent = "Ungültige Zapfstelle";
+  warnung.style.display = "block";
+  buchungsBereich.style.display = "none";
+  freiBereich.style.display = "none";
+}
+
+function normalisiereZahl(wert) {
+  return Number(String(wert).replace(",", "."));
+}
+
+function zeigeFeedback(text, istFehler = false) {
+  feedback.textContent = text;
+  feedback.classList.toggle("error", istFehler);
+
+  clearTimeout(window.feedbackTimer);
+  window.feedbackTimer = setTimeout(() => {
+    feedback.textContent = "";
+    feedback.classList.remove("error");
+  }, 3000);
+}
+
+async function postJSON(url, daten) {
+  const antwort = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(daten)
+  });
+
+  if (!antwort.ok) {
+    const text = await antwort.text();
+    throw new Error(text || "Fehler bei der Anfrage");
+  }
+
+  return antwort.json();
+}
+
+async function fassBuchen(liter) {
+  if (!istGueltigeZapfstelle(stelle)) {
+    zeigeFeedback("Keine gültige Zapfstelle.", true);
+    return;
+  }
+
+  const sicher = confirm(`${liter} Liter an Zapfstelle ${stelle} buchen?`);
+
+  if (!sicher) {
+    return;
+  }
+
+  try {
+    await postJSON("/api/fass", {
+      stelle,
+      liter
+    });
+
+    zeigeFeedback(`${liter} Liter an Zapfstelle ${stelle} gebucht.`);
+  } catch (err) {
+    zeigeFeedback(err.message, true);
+  }
+}
+
+async function freieEingabe() {
+  if (!istGueltigeZapfstelle(stelle)) {
+    zeigeFeedback("Keine gültige Zapfstelle.", true);
+    return;
+  }
+
+  const input = document.getElementById("freiInput");
+  const liter = normalisiereZahl(input.value);
+
+  if (!Number.isFinite(liter) || liter <= 0) {
+    zeigeFeedback("Bitte gültige Literzahl eingeben.", true);
+    return;
+  }
+
+  const sicher = confirm(`${liter} Liter an Zapfstelle ${stelle} buchen?`);
+
+  if (!sicher) {
+    return;
+  }
+
+  try {
+    await postJSON("/api/verkauf", {
+      stelle,
+      liter
+    });
+
+    input.value = "";
+    zeigeFeedback(`${liter} Liter an Zapfstelle ${stelle} gebucht.`);
+  } catch (err) {
+    zeigeFeedback(err.message, true);
+  }
+}
+
+function updateAnzeige(data) {
+  const plan = Number(data.plan) || 0;
+  const ist = Number(data.ist) || 0;
+
+  planWert.textContent = Math.round(plan);
+  istWert.textContent = Math.round(ist);
+
+  const prozent = plan > 0
+    ? Math.min(100, (ist / plan) * 100)
+    : 0;
+
+  prozentWert.textContent = Math.round(prozent);
+  progressBar.style.width = `${prozent}%`;
+
+  if (Array.isArray(data.letzteBuchungen)) {
+    renderLog(data.letzteBuchungen);
+  }
+}
+
+function renderLog(buchungen) {
+  if (!buchungen.length) {
+    logListe.innerHTML = `<div class="small-note">Noch keine Buchungen vorhanden.</div>`;
+    return;
+  }
+
+  logListe.innerHTML = buchungen.map(buchung => {
+    const zeit = new Date(buchung.zeit);
+    const uhrzeit = zeit.toLocaleTimeString("de-DE", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+
+    const typText = buchung.typ === "fass30"
+      ? "30 L Fass"
+      : buchung.typ === "fass50"
+        ? "50 L Fass"
+        : "freie Eingabe";
+
+    return `
+      <div class="log-entry">
+        <span>${uhrzeit} | Zapfstelle ${buchung.stelle}</span>
+        <strong>+${buchung.liter} L</strong>
+        <span class="log-typ">${typText}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+socket.on("update", data => {
+  updateAnzeige(data);
+});
+
+socket.on("reset", () => {
+  updateAnzeige({
+    plan: 0,
+    ist: 0,
+    letzteBuchungen: []
+  });
+});
+</script>
+
+</body>
+</html>
