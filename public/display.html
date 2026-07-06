@@ -139,28 +139,10 @@ html, body {
 const socket = io();
 
 let targetPlan = 0;
-let targetIst = 0;
+let targetAnzeigeIst = 0;
 
 let displayPlan = 0;
 let displayIst = 0;
-
-let lastFrameTime = performance.now();
-
-/*
-  Show-Geschwindigkeit:
-  150 Liter pro Stunde bedeutet:
-  50 Liter dauern ungefähr 20 Minuten.
-*/
-const SHOW_LITER_PRO_STUNDE = 150;
-
-/*
-  Die Anzeige zählt nach einer Buchung nur eine gewisse Zeit weiter.
-  Danach pausiert sie, damit sie bei ruhigen Phasen nicht unrealistisch weiterläuft.
-*/
-const AKTIV_NACH_BUCHUNG_MINUTEN = 5;
-
-let showLiterPerMs = SHOW_LITER_PRO_STUNDE / 60 / 60 / 1000;
-let aktivBis = 0;
 
 const sollValue = document.getElementById("sollValue");
 const istValue = document.getElementById("istValue");
@@ -176,35 +158,27 @@ function animatePlan(current, target) {
   return current + diff * 0.08;
 }
 
-function getWirksameGeschwindigkeit() {
-  return showLiterPerMs;
-}
-
 function render() {
-  const now = performance.now();
-  const deltaMs = now - lastFrameTime;
-  lastFrameTime = now;
-
   displayPlan = animatePlan(displayPlan, targetPlan);
 
-  const darfZaehlen = performance.now() < aktivBis;
+  const diff = targetAnzeigeIst - displayIst;
 
-  if (displayIst < targetIst && darfZaehlen) {
-    const speed = getWirksameGeschwindigkeit();
-    const schritt = speed * deltaMs;
-
-    displayIst = Math.min(displayIst + schritt, targetIst);
-  }
-
-  if (displayIst > targetIst) {
-    displayIst = targetIst;
+  if (Math.abs(diff) < 0.05) {
+    displayIst = targetAnzeigeIst;
+  } else {
+    displayIst += diff * 0.15;
   }
 
   sollValue.textContent = Math.round(displayPlan);
-  istValue.textContent = Math.round(displayIst);
+istValue.textContent = displayIst.toLocaleString("de-DE", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1
+});
 
   requestAnimationFrame(render);
 }
+
+let letzterEchterIst = 0;
 
 socket.on("update", data => {
   if (typeof data.plan === "number") {
@@ -212,27 +186,26 @@ socket.on("update", data => {
   }
 
   if (typeof data.ist === "number") {
-    if (data.ist > targetIst) {
+    if (data.ist > letzterEchterIst) {
       bierometerLeiste.classList.remove("pulse");
       void bierometerLeiste.offsetWidth;
       bierometerLeiste.classList.add("pulse");
-
-      aktivBis = performance.now() + AKTIV_NACH_BUCHUNG_MINUTEN * 60 * 1000;
     }
 
-    targetIst = data.ist;
+    letzterEchterIst = data.ist;
+  }
+
+  if (typeof data.anzeigeIst === "number") {
+    targetAnzeigeIst = data.anzeigeIst;
   }
 });
 
 socket.on("reset", () => {
   targetPlan = 0;
-  targetIst = 0;
+  targetAnzeigeIst = 0;
 
   displayPlan = 0;
   displayIst = 0;
-
-  showLiterPerMs = SHOW_LITER_PRO_STUNDE / 60 / 60 / 1000;
-  aktivBis = 0;
 
   sollValue.textContent = "0";
   istValue.textContent = "0";

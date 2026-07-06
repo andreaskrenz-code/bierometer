@@ -60,6 +60,8 @@ h1 {
   box-shadow: 0 0 18px rgba(255, 212, 0, 0.2);
 }
 
+
+
 .status-row {
   display: flex;
   justify-content: space-between;
@@ -94,6 +96,19 @@ h1 {
   font-weight: bold;
   color: #ffd400;
   margin-bottom: 12px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 8px 0;
+  font-size: 16px;
+}
+
+.info-row strong {
+  color: #ffd400;
+  text-align: right;
 }
 
 .input-row {
@@ -231,7 +246,7 @@ button.secondary {
 <div class="app">
   <div class="header">
     <h1>Bierometer Admin</h1>
-    <div class="subtitle">Soll-Wert setzen, Stand prüfen und zurücksetzen</div>
+    <div class="subtitle">Soll-Wert, Live-Plan und Verwaltung</div>
   </div>
 
   <div class="card status-card">
@@ -252,6 +267,64 @@ button.secondary {
 
     <div class="progress-wrap">
       <div class="progress" id="progressBar"></div>
+    </div>
+  </div>
+
+    <div class="card">
+    <div class="section-title">Anzeige-Steuerung</div>
+
+    <div class="info-row">
+      <span>Status</span>
+      <strong id="anzeigeStatus">PAUSIERT</strong>
+    </div>
+
+    <div class="info-row">
+      <span>Sichtbare Anzeige</span>
+      <strong><span id="anzeigeIstWert">0</span> Liter</strong>
+    </div>
+
+    <div class="quick-grid">
+      <button onclick="startAnzeige()">START</button>
+      <button class="secondary" onclick="pauseAnzeige()">PAUSE</button>
+      <button class="secondary" onclick="aufholenAnzeige()">AUFHOLEN</button>
+      <button class="secondary" onclick="angleichenAnzeige()">SOFORT ANGLEICHEN</button>
+    </div>
+
+    <div class="small-note">
+      START lässt die Anzeige weiterzählen. PAUSE stoppt nur die sichtbare Anzeige, Buchungen gehen nicht verloren.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Live-Zapfplan</div>
+
+    <div class="info-row">
+      <span>Aktueller Zeitraum</span>
+      <strong id="liveZeitraum">-</strong>
+    </div>
+
+    <div class="info-row">
+      <span>Uhrzeit</span>
+      <strong id="liveUhrzeit">-</strong>
+    </div>
+
+    <div class="info-row">
+      <span>Erwartete Leute</span>
+      <strong id="livePersonen">0</strong>
+    </div>
+
+    <div class="info-row">
+      <span>Anzeige-Geschwindigkeit</span>
+      <strong><span id="liveSpeed">0</span> L/h</strong>
+    </div>
+
+    <div class="info-row">
+      <span>Nachlaufzeit</span>
+      <strong><span id="liveNachlauf">0</span> Min.</strong>
+    </div>
+
+    <div class="small-note">
+      Die Anzeige zählt nur bis zum wirklich gebuchten IST-Wert. Der Plan bestimmt nur die Geschwindigkeit.
     </div>
   </div>
 
@@ -311,6 +384,15 @@ const progressBar = document.getElementById("progressBar");
 const feedback = document.getElementById("feedback");
 const logListe = document.getElementById("logListe");
 
+const anzeigeStatus = document.getElementById("anzeigeStatus");
+const anzeigeIstWert = document.getElementById("anzeigeIstWert");
+
+const liveZeitraum = document.getElementById("liveZeitraum");
+const liveUhrzeit = document.getElementById("liveUhrzeit");
+const livePersonen = document.getElementById("livePersonen");
+const liveSpeed = document.getElementById("liveSpeed");
+const liveNachlauf = document.getElementById("liveNachlauf");
+
 function normalisiereZahl(wert) {
   return Number(String(wert).replace(",", "."));
 }
@@ -368,6 +450,48 @@ async function setPlan() {
   }
 }
 
+async function startAnzeige() {
+  try {
+    await postJSON("/api/start", {});
+    zeigeFeedback("Anzeige gestartet.");
+  } catch (err) {
+    zeigeFeedback(err.message, true);
+  }
+}
+
+async function pauseAnzeige() {
+  try {
+    await postJSON("/api/pause", {});
+    zeigeFeedback("Anzeige pausiert.");
+  } catch (err) {
+    zeigeFeedback(err.message, true);
+  }
+}
+
+async function aufholenAnzeige() {
+  try {
+    await postJSON("/api/aufholen", {});
+    zeigeFeedback("Aufholen aktiviert.");
+  } catch (err) {
+    zeigeFeedback(err.message, true);
+  }
+}
+
+async function angleichenAnzeige() {
+  const sicher = confirm("Anzeige sofort auf echten IST-Wert setzen?");
+
+  if (!sicher) {
+    return;
+  }
+
+  try {
+    await postJSON("/api/angleichen", {});
+    zeigeFeedback("Anzeige wurde angeglichen.");
+  } catch (err) {
+    zeigeFeedback(err.message, true);
+  }
+}
+
 async function resetBierometer() {
   const sicher = confirm("Bierometer wirklich komplett zurücksetzen?");
 
@@ -392,6 +516,13 @@ async function resetBierometer() {
 function updateAnzeige(data) {
   const plan = Number(data.plan) || 0;
   const ist = Number(data.ist) || 0;
+  const sichtbarerIst = Number(data.anzeigeIst) || 0;
+
+anzeigeIstWert.textContent = Math.round(sichtbarerIst);
+
+anzeigeStatus.textContent = data.anzeigeLaeuft ? "LÄUFT" : "PAUSIERT";
+anzeigeStatus.style.color = data.anzeigeLaeuft ? "#56d46f" : "#ffd400";
+
 
   planWert.textContent = Math.round(plan);
   istWert.textContent = Math.round(ist);
@@ -402,6 +533,14 @@ function updateAnzeige(data) {
 
   prozentWert.textContent = Math.round(prozent);
   progressBar.style.width = `${prozent}%`;
+
+  if (data.live) {
+    liveZeitraum.textContent = data.live.text || "-";
+    liveUhrzeit.textContent = data.live.uhrzeit || "-";
+    livePersonen.textContent = data.live.personen || 0;
+    liveSpeed.textContent = Math.round(Number(data.live.literProStunde) || 0);
+    liveNachlauf.textContent = data.live.nachlaufMinuten || 0;
+  }
 
   if (Array.isArray(data.letzteBuchungen)) {
     renderLog(data.letzteBuchungen);
@@ -445,6 +584,13 @@ socket.on("reset", () => {
   updateAnzeige({
     plan: 0,
     ist: 0,
+    live: {
+      text: "-",
+      uhrzeit: "-",
+      personen: 0,
+      literProStunde: 0,
+      nachlaufMinuten: 0
+    },
     letzteBuchungen: []
   });
 });

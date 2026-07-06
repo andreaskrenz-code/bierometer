@@ -1,0 +1,48 @@
+{
+  "plan": 1500,
+  "ist": 50,
+  "anzeigeIst": 24.04295833333339,
+  "anzeigeLaeuft": true,
+  "turboBis": 0,
+  "startTime": 1783348364343,
+  "zapfstellen": {
+    "1": {
+      "liter": 50,
+      "faesser30": 0,
+      "faesser50": 1,
+      "freieEingaben": 0
+    },
+    "2": {
+      "liter": 0,
+      "faesser30": 0,
+      "faesser50": 0,
+      "freieEingaben": 0
+    },
+    "3": {
+      "liter": 0,
+      "faesser30": 0,
+      "faesser50": 0,
+      "freieEingaben": 0
+    },
+    "4": {
+      "liter": 0,
+      "faesser30": 0,
+      "faesser50": 0,
+      "freieEingaben": 0
+    },
+    "5": {
+      "liter": 0,
+      "faesser30": 0,
+      "faesser50": 0,
+      "freieEingaben": 0
+    }
+  },
+  "buchungen": [
+    {
+      "zeit": "2026-07-06T14:33:05.849Z",
+      "stelle": 1,
+      "liter": 50,
+      "typ": "fass50"
+    }
+  ]
+}

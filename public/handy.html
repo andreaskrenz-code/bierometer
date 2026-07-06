@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bierometer Eingabe</title>
+<title>Bierometer Zapfstelle</title>
 
 <script src="/socket.io/socket.io.js"></script>
 
@@ -42,9 +42,17 @@ h1 {
 
 .stelle {
   margin-top: 8px;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: bold;
   color: #fff0a0;
+}
+
+.card {
+  background: #1c1c1c;
+  border: 1px solid #333;
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 16px;
 }
 
 .warnung {
@@ -58,81 +66,39 @@ h1 {
   display: none;
 }
 
-.card {
-  background: #1c1c1c;
-  border: 1px solid #333;
-  border-radius: 18px;
-  padding: 16px;
-  margin-bottom: 16px;
-}
-
-.status-card {
-  background: linear-gradient(180deg, #2b2b2b, #151515);
-  border: 2px solid #ffd400;
-  box-shadow: 0 0 18px rgba(255, 212, 0, 0.2);
-}
-
-.status-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 19px;
-  margin: 8px 0;
-}
-
-.status-row strong {
-  color: #ffd400;
-  font-variant-numeric: tabular-nums;
-}
-
-.progress-wrap {
-  margin-top: 14px;
-  height: 18px;
-  background: #000;
-  border-radius: 999px;
-  overflow: hidden;
-  border: 1px solid #444;
-}
-
-.progress {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #8b0000, #ffd400);
-  transition: width 0.4s ease;
-}
-
 .section-title {
-  font-size: 19px;
+  font-size: 20px;
   font-weight: bold;
   color: #ffd400;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  text-align: center;
 }
 
 .big-buttons {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 12px;
+  gap: 14px;
 }
 
 button {
   width: 100%;
   border: none;
-  border-radius: 16px;
-  padding: 18px 16px;
-  font-size: 22px;
+  border-radius: 18px;
+  padding: 22px 16px;
+  font-size: 24px;
   font-weight: bold;
   cursor: pointer;
   color: #111;
   background: #ffd400;
-  min-height: 64px;
-}
-
-button:active {
-  transform: scale(0.98);
+  min-height: 74px;
 }
 
 button.secondary {
   background: #fff0a0;
+}
+
+button:active {
+  transform: scale(0.98);
 }
 
 .input-row {
@@ -150,6 +116,58 @@ input {
   font-size: 20px;
 }
 
+.status-mini {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.status-box {
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 14px;
+  padding: 12px;
+  text-align: center;
+}
+
+.status-box span {
+  display: block;
+  color: #aaa;
+  font-size: 13px;
+}
+
+.status-box strong {
+  display: block;
+  color: #ffd400;
+  font-size: 24px;
+  margin-top: 4px;
+}
+
+.success {
+  display: none;
+  text-align: center;
+  background: #123519;
+  border: 2px solid #56d46f;
+}
+
+.success h2 {
+  margin: 0 0 10px;
+  color: #9dffae;
+  font-size: 28px;
+}
+
+.success .big {
+  color: #ffd400;
+  font-size: 38px;
+  font-weight: bold;
+  margin: 12px 0;
+}
+
+.success p {
+  color: #d8ffd8;
+  font-size: 17px;
+}
+
 .feedback {
   min-height: 24px;
   text-align: center;
@@ -159,34 +177,6 @@ input {
 
 .feedback.error {
   color: #ff9b9b;
-}
-
-.log {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.log-entry {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 6px 10px;
-  background: #111;
-  border: 1px solid #292929;
-  border-radius: 12px;
-  padding: 10px;
-  font-size: 14px;
-  color: #ddd;
-}
-
-.log-entry strong {
-  color: #ffd400;
-}
-
-.log-typ {
-  grid-column: 1 / 3;
-  color: #aaa;
-  font-size: 13px;
 }
 
 .small-note {
@@ -206,15 +196,15 @@ input {
   }
 
   .stelle {
-    font-size: 22px;
+    font-size: 23px;
   }
 
   button {
-    font-size: 20px;
+    font-size: 21px;
   }
 
-  .status-row {
-    font-size: 18px;
+  .input-row {
+    flex-direction: column;
   }
 }
 </style>
@@ -232,54 +222,45 @@ input {
     Keine gültige Zapfstelle erkannt. Bitte QR-Code an Zapfstelle 1 bis 5 scannen.
   </div>
 
-  <div class="card status-card">
-    <div class="status-row">
-      <span>SOLL</span>
-      <strong><span id="planWert">0</span> Liter</strong>
-    </div>
+  <div class="card status-card" id="statusBereich">
+    <div class="status-mini">
+      <div class="status-box">
+        <span>SOLL</span>
+        <strong><span id="planWert">0</span> L</strong>
+      </div>
 
-    <div class="status-row">
-      <span>IST</span>
-      <strong><span id="istWert">0</span> Liter</strong>
-    </div>
-
-    <div class="status-row">
-      <span>Erreicht</span>
-      <strong><span id="prozentWert">0</span>%</strong>
-    </div>
-
-    <div class="progress-wrap">
-      <div class="progress" id="progressBar"></div>
+      <div class="status-box">
+        <span>IST</span>
+        <strong><span id="istWert">0</span> L</strong>
+      </div>
     </div>
   </div>
 
   <div class="card" id="buchungsBereich">
-    <div class="section-title">Fass angestochen</div>
+    <div class="section-title">Fass angesteckt?</div>
 
     <div class="big-buttons">
-      <button onclick="fassBuchen(30)">30 Liter Fass buchen</button>
-      <button class="secondary" onclick="fassBuchen(50)">50 Liter Fass buchen</button>
+      <button onclick="fassBuchen(50)">50 Liter Fass bestätigen</button>
+      <button class="secondary" onclick="fassBuchen(30)">30 Liter Fass bestätigen</button>
     </div>
 
-    <div class="small-note">Bitte erst drücken, wenn das Fass wirklich an dieser Zapfstelle gewechselt wurde.</div>
+    <div class="small-note">Bitte erst drücken, wenn das Fass wirklich an dieser Zapfstelle angeschlossen wurde.</div>
   </div>
 
   <div class="card" id="freiBereich">
-    <div class="section-title">Freie Eingabe</div>
+    <div class="section-title">Sonderfall / Korrektur</div>
 
     <div class="input-row">
       <input id="freiInput" type="number" inputmode="decimal" step="0.1" placeholder="Liter">
       <button onclick="freieEingabe()">Buchen</button>
     </div>
-
-    <div class="small-note">Für Korrekturen oder Sonderfälle.</div>
   </div>
 
-  <div class="card">
-    <div class="section-title">Letzte Buchungen</div>
-    <div class="log" id="logListe">
-      <div class="small-note">Noch keine Buchungen geladen.</div>
-    </div>
+  <div class="card success" id="successBereich">
+    <h2>Gebucht</h2>
+    <div class="big" id="successText">50 Liter</div>
+    <p>Die Eingabe wurde übernommen.</p>
+    <p>Du kannst die Seite jetzt schließen.</p>
   </div>
 
   <div class="feedback" id="feedback"></div>
@@ -297,13 +278,15 @@ const stellenTitel = document.getElementById("stellenTitel");
 const warnung = document.getElementById("warnung");
 const buchungsBereich = document.getElementById("buchungsBereich");
 const freiBereich = document.getElementById("freiBereich");
+const statusBereich = document.getElementById("statusBereich");
+const successBereich = document.getElementById("successBereich");
+const successText = document.getElementById("successText");
 
 const planWert = document.getElementById("planWert");
 const istWert = document.getElementById("istWert");
-const prozentWert = document.getElementById("prozentWert");
-const progressBar = document.getElementById("progressBar");
 const feedback = document.getElementById("feedback");
-const logListe = document.getElementById("logListe");
+
+let wurdeGebucht = false;
 
 function istGueltigeZapfstelle(wert) {
   return Number.isInteger(wert) && wert >= 1 && wert <= ANZAHL_ZAPFSTELLEN;
@@ -314,6 +297,7 @@ if (istGueltigeZapfstelle(stelle)) {
 } else {
   stellenTitel.textContent = "Ungültige Zapfstelle";
   warnung.style.display = "block";
+  statusBereich.style.display = "none";
   buchungsBereich.style.display = "none";
   freiBereich.style.display = "none";
 }
@@ -350,13 +334,28 @@ async function postJSON(url, daten) {
   return antwort.json();
 }
 
+function zeigeErfolg(liter) {
+  wurdeGebucht = true;
+
+  statusBereich.style.display = "none";
+  buchungsBereich.style.display = "none";
+  freiBereich.style.display = "none";
+
+  successText.textContent = `${liter} Liter`;
+  successBereich.style.display = "block";
+}
+
 async function fassBuchen(liter) {
+  if (wurdeGebucht) {
+    return;
+  }
+
   if (!istGueltigeZapfstelle(stelle)) {
     zeigeFeedback("Keine gültige Zapfstelle.", true);
     return;
   }
 
-  const sicher = confirm(`${liter} Liter an Zapfstelle ${stelle} buchen?`);
+  const sicher = confirm(`${liter} Liter an Zapfstelle ${stelle} bestätigen?`);
 
   if (!sicher) {
     return;
@@ -368,13 +367,17 @@ async function fassBuchen(liter) {
       liter
     });
 
-    zeigeFeedback(`${liter} Liter an Zapfstelle ${stelle} gebucht.`);
+    zeigeErfolg(liter);
   } catch (err) {
     zeigeFeedback(err.message, true);
   }
 }
 
 async function freieEingabe() {
+  if (wurdeGebucht) {
+    return;
+  }
+
   if (!istGueltigeZapfstelle(stelle)) {
     zeigeFeedback("Keine gültige Zapfstelle.", true);
     return;
@@ -401,58 +404,22 @@ async function freieEingabe() {
     });
 
     input.value = "";
-    zeigeFeedback(`${liter} Liter an Zapfstelle ${stelle} gebucht.`);
+    zeigeErfolg(liter);
   } catch (err) {
     zeigeFeedback(err.message, true);
   }
 }
 
 function updateAnzeige(data) {
+  if (wurdeGebucht) {
+    return;
+  }
+
   const plan = Number(data.plan) || 0;
   const ist = Number(data.ist) || 0;
 
   planWert.textContent = Math.round(plan);
   istWert.textContent = Math.round(ist);
-
-  const prozent = plan > 0
-    ? Math.min(100, (ist / plan) * 100)
-    : 0;
-
-  prozentWert.textContent = Math.round(prozent);
-  progressBar.style.width = `${prozent}%`;
-
-  if (Array.isArray(data.letzteBuchungen)) {
-    renderLog(data.letzteBuchungen);
-  }
-}
-
-function renderLog(buchungen) {
-  if (!buchungen.length) {
-    logListe.innerHTML = `<div class="small-note">Noch keine Buchungen vorhanden.</div>`;
-    return;
-  }
-
-  logListe.innerHTML = buchungen.map(buchung => {
-    const zeit = new Date(buchung.zeit);
-    const uhrzeit = zeit.toLocaleTimeString("de-DE", {
-      hour: "2-digit",
-      minute: "2-digit"
-    });
-
-    const typText = buchung.typ === "fass30"
-      ? "30 L Fass"
-      : buchung.typ === "fass50"
-        ? "50 L Fass"
-        : "freie Eingabe";
-
-    return `
-      <div class="log-entry">
-        <span>${uhrzeit} | Zapfstelle ${buchung.stelle}</span>
-        <strong>+${buchung.liter} L</strong>
-        <span class="log-typ">${typText}</span>
-      </div>
-    `;
-  }).join("");
 }
 
 socket.on("update", data => {
@@ -460,10 +427,13 @@ socket.on("update", data => {
 });
 
 socket.on("reset", () => {
+  if (wurdeGebucht) {
+    return;
+  }
+
   updateAnzeige({
     plan: 0,
-    ist: 0,
-    letzteBuchungen: []
+    ist: 0
   });
 });
 </script>
