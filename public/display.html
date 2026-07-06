@@ -41,7 +41,7 @@ html, body {
   position: absolute;
   left: 7%;
   right: 7%;
-  bottom: 2.0%;
+  bottom: 3.5%;
 
   height: 7%;
 
@@ -79,7 +79,7 @@ html, body {
 }
 
 .zahl {
-  min-width: 3ch;
+  min-width: 4ch;
   text-align: right;
   font-variant-numeric: tabular-nums;
   color: #ffd400;
@@ -129,7 +129,7 @@ html, body {
 
     <div class="block">
       <span class="label">ist</span>
-      <span class="zahl" id="istValue">0</span>
+      <span class="zahl" id="istValue">0,0</span>
       <span class="einheit">Liter</span>
     </div>
   </div>
@@ -144,47 +144,48 @@ let targetAnzeigeIst = 0;
 let displayPlan = 0;
 let displayIst = 0;
 
+let letzterEchterIst = 0;
+
 const sollValue = document.getElementById("sollValue");
 const istValue = document.getElementById("istValue");
 const bierometerLeiste = document.getElementById("bierometerLeiste");
 
-function animatePlan(current, target) {
+function animateValue(current, target, faktor = 0.15) {
   const diff = target - current;
 
   if (Math.abs(diff) < 0.05) {
     return target;
   }
 
-  return current + diff * 0.08;
+  return current + diff * faktor;
+}
+
+function formatLiterMitKomma(wert) {
+  return wert.toLocaleString("de-DE", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  });
 }
 
 function render() {
-  displayPlan = animatePlan(displayPlan, targetPlan);
-
-  const diff = targetAnzeigeIst - displayIst;
-
-  if (Math.abs(diff) < 0.05) {
-    displayIst = targetAnzeigeIst;
-  } else {
-    displayIst += diff * 0.15;
-  }
+  displayPlan = animateValue(displayPlan, targetPlan, 0.08);
+  displayIst = animateValue(displayIst, targetAnzeigeIst, 0.15);
 
   sollValue.textContent = Math.round(displayPlan);
-istValue.textContent = displayIst.toLocaleString("de-DE", {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1
-});
+  istValue.textContent = formatLiterMitKomma(displayIst);
 
   requestAnimationFrame(render);
 }
-
-let letzterEchterIst = 0;
 
 socket.on("update", data => {
   if (typeof data.plan === "number") {
     targetPlan = data.plan;
   }
 
+  /*
+    Puls nur, wenn wirklich ein neues Fass / neuer echter IST-Wert gebucht wurde.
+    Nicht bei jedem normalen Hochzählen der Anzeige.
+  */
   if (typeof data.ist === "number") {
     if (data.ist > letzterEchterIst) {
       bierometerLeiste.classList.remove("pulse");
@@ -195,6 +196,10 @@ socket.on("update", data => {
     letzterEchterIst = data.ist;
   }
 
+  /*
+    Zentraler Anzeige-Wert vom Server.
+    Dadurch starten neue Display-Fenster nicht mehr bei 0.
+  */
   if (typeof data.anzeigeIst === "number") {
     targetAnzeigeIst = data.anzeigeIst;
   }
@@ -206,9 +211,10 @@ socket.on("reset", () => {
 
   displayPlan = 0;
   displayIst = 0;
+  letzterEchterIst = 0;
 
   sollValue.textContent = "0";
-  istValue.textContent = "0";
+  istValue.textContent = "0,0";
 });
 
 render();

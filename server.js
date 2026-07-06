@@ -284,6 +284,114 @@ function getAverageLiterPerMs() {
   return ist / laufzeitMs;
 }
 
+function berechneAnzeigeGeschwindigkeit() {
+  const live = getLiveParameter();
+  const rueckstand = ist - anzeigeIst;
+
+  let speed = Number(live.literProStunde) || 0;
+
+  // Automatische Aufholstufen
+  if (rueckstand >= 200) {
+    speed *= 3;
+  } else if (rueckstand >= 100) {
+    speed *= 2;
+  } else if (rueckstand >= 50) {
+    speed *= 1.5;
+  }
+
+  // Manueller Turbo
+  if (Date.now() < turboBis) {
+    speed = Math.max(speed, TURBO_LITER_PRO_STUNDE);
+  }
+
+  // Automatisches Aufholen pro Zapfstelle
+  if (autoAufholLiter > 0) {
+    speed = Math.max(speed, TURBO_LITER_PRO_STUNDE);
+  }
+
+  // Absolute Obergrenze
+  speed = Math.min(speed, TURBO_LITER_PRO_STUNDE);
+
+  return speed;
+}
+
+/*
+  Fass-Prognose:
+  Berechnet pro Zapfstelle den rechnerischen Rest und eine ungefähre Leerzeit.
+  Das ist eine Schätzung, weil die App nicht exakt weiß, an welcher Zapfstelle
+  gerade wie viel gezapft wird.
+*/
+function getZapfstellenPrognose() {
+  const live = getLiveParameter();
+  const gesamtSpeed = berechneAnzeigeGeschwindigkeit();
+
+  const aktiveZapfstellen = [];
+
+  for (let i = 1; i <= ANZAHL_ZAPFSTELLEN; i++) {
+    const zapfstelle = zapfstellen[i];
+    const restLiter = Math.max(0, zapfstelle.liter - zapfstelle.anzeigeLiter);
+
+    if (restLiter > 0.1) {
+      aktiveZapfstellen.push(i);
+    }
+  }
+
+  const speedProZapfstelle = aktiveZapfstellen.length > 0
+    ? gesamtSpeed / aktiveZapfstellen.length
+    : 0;
+
+  const prognose = {};
+
+  for (let i = 1; i <= ANZAHL_ZAPFSTELLEN; i++) {
+    const zapfstelle = zapfstellen[i];
+    const restLiter = Math.max(0, zapfstelle.liter - zapfstelle.anzeigeLiter);
+
+    let minutenBisLeer = null;
+    let leerUm = null;
+    let status = "kein aktives Fass";
+
+    if (restLiter > 0.1 && speedProZapfstelle > 0) {
+      minutenBisLeer = Math.ceil((restLiter / speedProZapfstelle) * 60);
+
+      const leerZeit = new Date(Date.now() + minutenBisLeer * 60 * 1000);
+
+      leerUm = new Intl.DateTimeFormat("de-DE", {
+        timeZone: "Europe/Berlin",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23"
+      }).format(leerZeit);
+
+      if (restLiter <= 5) {
+        status = "fast leer";
+      } else if (restLiter <= 10) {
+        status = "bald leer";
+      } else {
+        status = "läuft";
+      }
+    } else if (restLiter > 0.1 && speedProZapfstelle <= 0) {
+      status = "Rest vorhanden, Anzeige pausiert";
+    }
+
+    prognose[i] = {
+      stelle: i,
+      restLiter: Number(restLiter.toFixed(1)),
+      anzeigeLiter: Number(zapfstelle.anzeigeLiter.toFixed(1)),
+      gebuchtLiter: Number(zapfstelle.liter.toFixed(1)),
+      minutenBisLeer,
+      leerUm,
+      status,
+      faesser30: zapfstelle.faesser30,
+      faesser50: zapfstelle.faesser50,
+      freieEingaben: zapfstelle.freieEingaben,
+      speedProZapfstelle: Number(speedProZapfstelle.toFixed(1)),
+      liveModus: live.modus
+    };
+  }
+
+  return prognose;
+}
+
 function getStatus() {
   return {
     plan,
@@ -301,7 +409,9 @@ function getStatus() {
     serverTime: Date.now(),
     averageLiterPerMs: getAverageLiterPerMs(),
     live: getLiveParameter(),
+    aktuelleAnzeigeGeschwindigkeit: berechneAnzeigeGeschwindigkeit(),
     zapfstellen,
+    zapfstellenPrognose: getZapfstellenPrognose(),
     letzteBuchungen: buchungen.slice(-10).reverse()
   };
 }
@@ -389,37 +499,6 @@ function bucheLiter({ stelle, liter, typ }) {
 }
 
 let letzterAnzeigeTick = Date.now();
-
-function berechneAnzeigeGeschwindigkeit() {
-  const live = getLiveParameter();
-  const rueckstand = ist - anzeigeIst;
-
-  let speed = Number(live.literProStunde) || 0;
-
-  // Automatische Aufholstufen
-  if (rueckstand >= 200) {
-    speed *= 3;
-  } else if (rueckstand >= 100) {
-    speed *= 2;
-  } else if (rueckstand >= 50) {
-    speed *= 1.5;
-  }
-
-  // Manueller Turbo
-  if (Date.now() < turboBis) {
-    speed = Math.max(speed, TURBO_LITER_PRO_STUNDE);
-  }
-
-  // Automatisches Aufholen pro Zapfstelle
-  if (autoAufholLiter > 0) {
-    speed = Math.max(speed, TURBO_LITER_PRO_STUNDE);
-  }
-
-  // Absolute Obergrenze
-  speed = Math.min(speed, TURBO_LITER_PRO_STUNDE);
-
-  return speed;
-}
 
 /*
   Verteilt den sichtbaren Anzeige-Fortschritt rechnerisch auf die Zapfstellen.
@@ -646,7 +725,7 @@ io.on("connection", socket => {
 });
 
 /*
-  Der Server zählt jetzt zentral die Anzeige hoch.
+  Der Server zählt zentral die Anzeige hoch.
   Dadurch starten neue Display-Fenster nicht mehr bei 0,
   sondern bekommen sofort den aktuellen Anzeige-Wert.
 */
