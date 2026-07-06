@@ -25,6 +25,19 @@ const MAX_LITER_PRO_STUNDE = 350;
 const TURBO_LITER_PRO_STUNDE = 500;
 
 /*
+  Lernende Gewichtung:
+  Die App schaut auf die Fasswechsel der letzten 2 Stunden.
+  Dadurch lernt sie, welche Zapfstelle stärker frequentiert ist.
+
+  Wichtig:
+  Das erhöht NICHT den Gesamtverbrauch.
+  Es verteilt nur den bestehenden Gesamtverbrauch realistischer auf die Zapfstellen.
+*/
+const LERNFENSTER_MS = 2 * 60 * 60 * 1000;
+const MIN_LERNFAKTOR = 0.5;
+const MAX_LERNFAKTOR = 2.5;
+
+/*
   Schützenfest-Plan
   tag: 6 = Samstag, 0 = Sonntag, 1 = Montag
 */
@@ -45,9 +58,6 @@ const SCHUETZENFEST_PLAN = [
 
 const TEST_LITER_PRO_STUNDE_AUSSERHALB_PLAN = 150;
 
-/*
-  Diese Werte werden später über die Admin-Ersteinrichtung gesetzt.
-*/
 let setupAbgeschlossen = false;
 let zapfstellenKonfig = [];
 
@@ -61,6 +71,10 @@ let startTime = Date.now();
 
 let zapfstellen = {};
 let buchungen = [];
+
+function begrenze(wert, min, max) {
+  return Math.min(max, Math.max(min, wert));
+}
 
 function getZapfstelleConfig(id) {
   return zapfstellenKonfig.find(z => z.id === Number(id));
@@ -76,7 +90,13 @@ function erstelleLeereZapfstelle() {
     faesser30: 0,
     faesser50: 0,
     freieEingaben: 0,
-    anzeigeLiter: 0
+    anzeigeLiter: 0,
+
+    /*
+      Hier merkt sich die App, wann an dieser Zapfstelle Fässer gewechselt wurden.
+      Daraus wird später die gelernte Gewichtung berechnet.
+    */
+    fassWechselHistorie: []
   };
 }
 
@@ -116,9 +136,15 @@ function sichereZapfstellenStruktur() {
       zapfstellen[id].anzeigeLiter = 0;
     }
 
+    if (!Array.isArray(zapfstellen[id].fassWechselHistorie)) {
+      zapfstellen[id].fassWechselHistorie = [];
+    }
+
     if (zapfstellen[id].anzeigeLiter > zapfstellen[id].liter) {
       zapfstellen[id].anzeigeLiter = zapfstellen[id].liter;
     }
+
+    bereinigeFassWechselHistorie(id);
   }
 }
 
@@ -149,6 +175,158 @@ function normalisiereZapfstellenKonfig(liste) {
       gewicht
     };
   });
+}
+
+function erstelleBuchungsId() {
+  return `buchung-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function erstelleBuchung({ stelle, liter, typ, stornoVon = null }) {
+  return {
+    id: erstelleBuchungsId(),
+    zeit: new Date().toISOString(),
+    stelle,
+    liter,
+    typ,
+    stornoVon,
+    storniert: false,
+    storniertAm: null
+  };
+}
+
+function istStornierbareBuchung(buchung) {
+  return buchung &&
+    !buchung.storniert &&
+    !buchung.stornoVon &&
+    (
+      buchung.typ === "fass30" ||
+      buchung.typ === "fass50" ||
+      buchung.typ === "frei"
+    );
+}
+
+function bereinigeFassWechselHistorie(stelle) {
+  const z = zapfstellen[stelle];
+
+  if (!z || !Array.isArray(z.fassWechselHistorie)) {
+    return;
+  }
+
+  const grenze = Date.now() - LERNFENSTER_MS;
+
+  z.fassWechselHistorie = z.fassWechselHistorie.filter(eintrag => {
+    const zeit = new Date(eintrag.zeit).getTime();
+    return Number.isFinite(zeit) && zeit >= grenze;
+  });
+}
+
+function registriereFassWechsel(stelle, liter) {
+  const z = zapfstellen[stelle];
+
+  if (!z) {
+    return;
+  }
+
+  if (!Array.isArray(z.fassWechselHistorie)) {
+    z.fassWechselHistorie = [];
+  }
+
+  z.fassWechselHistorie.push({
+    zeit: new Date().toISOString(),
+    liter
+  });
+
+  bereinigeFassWechselHistorie(stelle);
+}
+
+function entferneFassWechselAusHistorie(stelle, liter) {
+  const z = zapfstellen[stelle];
+
+  if (!z || !Array.isArray(z.fassWechselHistorie)) {
+    return;
+  }
+
+  /*
+    Bei Storno entfernen wir den zuletzt gefundenen passenden Fasswechsel.
+  */
+  for (let i = z.fassWechselHistorie.length - 1; i >= 0; i--) {
+    const eintrag = z.fassWechselHistorie[i];
+
+    if (Number(eintrag.liter) === Number(liter)) {
+      z.fassWechselHistorie.splice(i, 1);
+      return;
+    }
+  }
+}
+
+function getFassWechselStats(stelle) {
+  const z = zapfstellen[stelle];
+
+  if (!z || !Array.isArray(z.fassWechselHistorie)) {
+    return {
+      anzahl: 0,
+      liter: 0
+    };
+  }
+
+  bereinigeFassWechselHistorie(stelle);
+
+  const liter = z.fassWechselHistorie.reduce((summe, eintrag) => {
+    return summe + (Number(eintrag.liter) || 0);
+  }, 0);
+
+  return {
+    anzahl: z.fassWechselHistorie.length,
+    liter
+  };
+}
+
+function berechneGewichtungsInfo() {
+  /*
+    Hier wird gelernt:
+    Die Fasswechsel-Liter der letzten 2 Stunden werden pro Zapfstelle betrachtet.
+    Hat eine Zapfstelle überdurchschnittlich viele Fasswechsel, bekommt sie einen höheren Lernfaktor.
+    Hat sie wenig oder keine Wechsel, bekommt sie einen niedrigeren Faktor.
+
+    Die Summe des Verbrauchs bleibt trotzdem gleich.
+  */
+  const statsMap = {};
+  let gesamtLiterImFenster = 0;
+
+  for (const config of zapfstellenKonfig) {
+    const stats = getFassWechselStats(config.id);
+    statsMap[config.id] = stats;
+    gesamtLiterImFenster += stats.liter;
+  }
+
+  const anzahlZapfstellen = Math.max(zapfstellenKonfig.length, 1);
+  const durchschnittLiter = gesamtLiterImFenster / anzahlZapfstellen;
+
+  const info = {};
+
+  for (const config of zapfstellenKonfig) {
+    const basisGewicht = Number(config.gewicht || 1);
+    const stats = statsMap[config.id] || { anzahl: 0, liter: 0 };
+
+    let lernfaktor = 1;
+
+    if (gesamtLiterImFenster > 0 && durchschnittLiter > 0) {
+      lernfaktor = stats.liter / durchschnittLiter;
+      lernfaktor = begrenze(lernfaktor, MIN_LERNFAKTOR, MAX_LERNFAKTOR);
+    }
+
+    const effektivesGewicht = basisGewicht * lernfaktor;
+
+    info[config.id] = {
+      basisGewicht,
+      lernfaktor,
+      effektivesGewicht,
+      fasswechselAnzahlLernfenster: stats.anzahl,
+      fasswechselLiterLernfenster: stats.liter
+    };
+  }
+
+  return info;
 }
 
 function ladeDaten() {
@@ -182,7 +360,18 @@ function ladeDaten() {
     }
 
     if (Array.isArray(daten.buchungen)) {
-      buchungen = daten.buchungen.slice(-100);
+      buchungen = daten.buchungen.slice(-100).map(buchung => {
+        return {
+          id: buchung.id || erstelleBuchungsId(),
+          zeit: buchung.zeit || new Date().toISOString(),
+          stelle: Number(buchung.stelle),
+          liter: Number(buchung.liter) || 0,
+          typ: buchung.typ || "frei",
+          stornoVon: buchung.stornoVon || null,
+          storniert: Boolean(buchung.storniert),
+          storniertAm: buchung.storniertAm || null
+        };
+      });
     }
 
     sichereZapfstellenStruktur();
@@ -315,23 +504,17 @@ function getAverageLiterPerMs() {
 
 function berechneAnzeigeGeschwindigkeit() {
   const live = getLiveParameter();
-  const rueckstand = ist - anzeigeIst;
 
+  /*
+    Die sichtbare Verbrauchsgeschwindigkeit kommt NUR aus dem Festplan.
+    Mehr angestochene Fässer dürfen den Gesamtverbrauch NICHT beschleunigen.
+  */
   let speed = Number(live.literProStunde) || 0;
 
-  if (rueckstand >= 200) {
-    speed *= 3;
-  } else if (rueckstand >= 100) {
-    speed *= 2;
-  } else if (rueckstand >= 50) {
-    speed *= 1.5;
-  }
-
+  /*
+    Nur manuelles AUFHOLEN darf schneller laufen.
+  */
   if (Date.now() < turboBis) {
-    speed = Math.max(speed, TURBO_LITER_PRO_STUNDE);
-  }
-
-  if (autoAufholLiter > 0) {
     speed = Math.max(speed, TURBO_LITER_PRO_STUNDE);
   }
 
@@ -364,6 +547,7 @@ function getAktiveZapfstellenMitRest() {
 function berechneSpeedProZapfstelle() {
   const gesamtSpeed = berechneAnzeigeGeschwindigkeit();
   const aktiveZapfstellen = getAktiveZapfstellenMitRest();
+  const gewichtungsInfo = berechneGewichtungsInfo();
 
   const speedMap = {};
 
@@ -371,17 +555,20 @@ function berechneSpeedProZapfstelle() {
     speedMap[config.id] = 0;
   }
 
-  const summeGewichte = aktiveZapfstellen.reduce((summe, config) => {
-    return summe + Number(config.gewicht || 1);
+  const summeEffektiveGewichte = aktiveZapfstellen.reduce((summe, config) => {
+    const info = gewichtungsInfo[config.id];
+    return summe + Number(info?.effektivesGewicht || config.gewicht || 1);
   }, 0);
 
-  if (gesamtSpeed <= 0 || summeGewichte <= 0) {
+  if (gesamtSpeed <= 0 || summeEffektiveGewichte <= 0) {
     return speedMap;
   }
 
   for (const config of aktiveZapfstellen) {
-    const gewicht = Number(config.gewicht || 1);
-    speedMap[config.id] = gesamtSpeed * (gewicht / summeGewichte);
+    const info = gewichtungsInfo[config.id];
+    const effektivesGewicht = Number(info?.effektivesGewicht || config.gewicht || 1);
+
+    speedMap[config.id] = gesamtSpeed * (effektivesGewicht / summeEffektiveGewichte);
   }
 
   return speedMap;
@@ -390,12 +577,20 @@ function berechneSpeedProZapfstelle() {
 function getZapfstellenPrognose() {
   const live = getLiveParameter();
   const speedMap = berechneSpeedProZapfstelle();
+  const gewichtungsInfo = berechneGewichtungsInfo();
 
   const prognose = {};
 
   for (const config of zapfstellenKonfig) {
     const id = config.id;
     const z = zapfstellen[id] || erstelleLeereZapfstelle();
+    const info = gewichtungsInfo[id] || {
+      basisGewicht: Number(config.gewicht || 1),
+      lernfaktor: 1,
+      effektivesGewicht: Number(config.gewicht || 1),
+      fasswechselAnzahlLernfenster: 0,
+      fasswechselLiterLernfenster: 0
+    };
 
     const restLiter = Math.max(0, z.liter - z.anzeigeLiter);
     const speedProZapfstelle = Number(speedMap[id] || 0);
@@ -430,7 +625,19 @@ function getZapfstellenPrognose() {
     prognose[id] = {
       stelle: id,
       name: config.name,
-      gewicht: Number(config.gewicht || 1),
+
+      /*
+        Alte Anzeige-Kompatibilität:
+        gewicht bleibt erhalten, entspricht dem Grundgewicht.
+      */
+      gewicht: Number(info.basisGewicht.toFixed(2)),
+
+      basisGewicht: Number(info.basisGewicht.toFixed(2)),
+      lernfaktor: Number(info.lernfaktor.toFixed(2)),
+      effektivesGewicht: Number(info.effektivesGewicht.toFixed(2)),
+      fasswechselAnzahlLernfenster: info.fasswechselAnzahlLernfenster,
+      fasswechselLiterLernfenster: Number(info.fasswechselLiterLernfenster.toFixed(1)),
+      lernfensterMinuten: Math.round(LERNFENSTER_MS / 60 / 1000),
 
       restLiter: Number(restLiter.toFixed(1)),
       anzeigeLiter: Number(z.anzeigeLiter.toFixed(1)),
@@ -501,46 +708,79 @@ function bucheLiter({ stelle, liter, typ }) {
   }
 
   if (typ === "fass30" || typ === "fass50") {
-    const rechnerischerRest = Math.max(0, z.liter - z.anzeigeLiter);
+    /*
+      Wenn ein neues Fass bestätigt wird, war das alte echte Fass leer.
 
-    if (rechnerischerRest > 1) {
-      autoAufholLiter += rechnerischerRest;
+      Der rechnerische Rest des alten Fasses ist also tatsächlich schon verbraucht.
+      Wichtig:
+      Dieser Rest ist im Gesamt-IST bereits enthalten, weil das alte Fass ja schon
+      beim Anstich gebucht wurde.
 
-      buchungen.push({
-        zeit: new Date().toISOString(),
+      Deshalb wird der Rest NICHT nochmal auf ist addiert.
+      Er wird nur auf die sichtbare Bierometer-Anzeige anzeigeIst addiert.
+    */
+    const rechnerischerRestAltesFass = Math.max(0, z.liter - z.anzeigeLiter);
+
+    if (rechnerischerRestAltesFass > 0.1) {
+      anzeigeIst += rechnerischerRestAltesFass;
+
+      /*
+        Sicherheit: Die sichtbare Anzeige darf nie über dem echten IST liegen.
+      */
+      if (anzeigeIst > ist) {
+        anzeigeIst = ist;
+      }
+
+      buchungen.push(erstelleBuchung({
         stelle,
-        liter: Number(rechnerischerRest.toFixed(1)),
-        typ: "autoAufholen"
-      });
+        liter: Number(rechnerischerRestAltesFass.toFixed(1)),
+        typ: "restVerbraucht"
+      }));
     }
-  }
 
-  ist += liter;
+    /*
+      Jetzt wird das neue Fass gebucht.
+      Das erhöht den echten Gesamt-IST um 30 oder 50 Liter.
+    */
+    ist += liter;
 
-  if (anzeigeIst > ist) {
-    anzeigeIst = ist;
-  }
+    /*
+      Für die Füllstandsanzeige startet diese Zapfstelle wieder beim neuen Fass.
+      Also nicht alter Rest + neues Fass, sondern exakt 30 L oder 50 L.
+    */
+    z.liter = liter;
+    z.anzeigeLiter = 0;
 
-  z.liter += liter;
+    if (typ === "fass30") {
+      z.faesser30 += 1;
+    }
 
-  if (typ === "fass30") {
-    z.faesser30 += 1;
-  }
+    if (typ === "fass50") {
+      z.faesser50 += 1;
+    }
 
-  if (typ === "fass50") {
-    z.faesser50 += 1;
+    registriereFassWechsel(stelle, liter);
   }
 
   if (typ === "frei") {
+    /*
+      Freie Eingaben bleiben Zusatzbuchungen.
+    */
+    ist += liter;
+
+    if (anzeigeIst > ist) {
+      anzeigeIst = ist;
+    }
+
+    z.liter += liter;
     z.freieEingaben += 1;
   }
 
-  buchungen.push({
-    zeit: new Date().toISOString(),
+  buchungen.push(erstelleBuchung({
     stelle,
     liter,
     typ
-  });
+  }));
 
   if (buchungen.length > 100) {
     buchungen = buchungen.slice(-100);
@@ -560,6 +800,10 @@ function verteileAnzeigeFortschritt(deltaLiter) {
     return;
   }
 
+  /*
+    Mehrere Runden, damit Rest neu verteilt wird,
+    falls eine Zapfstelle während der Verteilung leer wird.
+  */
   for (let runde = 0; runde < 10; runde++) {
     if (rest <= 0.0001) {
       break;
@@ -571,8 +815,11 @@ function verteileAnzeigeFortschritt(deltaLiter) {
       break;
     }
 
+    const gewichtungsInfo = berechneGewichtungsInfo();
+
     const summeGewichte = aktive.reduce((summe, config) => {
-      return summe + Number(config.gewicht || 1);
+      const info = gewichtungsInfo[config.id];
+      return summe + Number(info?.effektivesGewicht || config.gewicht || 1);
     }, 0);
 
     if (summeGewichte <= 0) {
@@ -584,9 +831,11 @@ function verteileAnzeigeFortschritt(deltaLiter) {
     for (const config of aktive) {
       const z = zapfstellen[config.id];
       const offen = Math.max(0, z.liter - z.anzeigeLiter);
-      const gewicht = Number(config.gewicht || 1);
 
-      const anteilSoll = rest * (gewicht / summeGewichte);
+      const info = gewichtungsInfo[config.id];
+      const effektivesGewicht = Number(info?.effektivesGewicht || config.gewicht || 1);
+
+      const anteilSoll = rest * (effektivesGewicht / summeGewichte);
       const anteil = Math.min(offen, anteilSoll);
 
       if (anteil > 0) {
@@ -829,6 +1078,92 @@ app.post("/api/verkauf", (req, res) => {
     ok: true,
     stelle,
     liter,
+    ...getStatus()
+  });
+});
+
+app.post("/api/storno", (req, res) => {
+  const id = String(req.body.id || "");
+
+  const buchung = buchungen.find(eintrag => eintrag.id === id);
+
+  if (!buchung) {
+    return res.status(404).send("Buchung nicht gefunden");
+  }
+
+  if (!istStornierbareBuchung(buchung)) {
+    return res.status(400).send("Diese Buchung kann nicht storniert werden");
+  }
+
+  const stelle = Number(buchung.stelle);
+  const liter = Number(buchung.liter) || 0;
+  const typ = buchung.typ;
+
+  if (!istGueltigeZapfstelle(stelle)) {
+    return res.status(400).send("Zapfstelle der Buchung ist ungültig");
+  }
+
+  if (liter <= 0) {
+    return res.status(400).send("Buchung hat keinen gültigen Literwert");
+  }
+
+  const z = zapfstellen[stelle];
+
+  if (!z) {
+    return res.status(400).send("Zapfstelle nicht gefunden");
+  }
+
+  ist = Math.max(0, ist - liter);
+  z.liter = Math.max(0, z.liter - liter);
+
+  if (typ === "fass30") {
+    z.faesser30 = Math.max(0, z.faesser30 - 1);
+    entferneFassWechselAusHistorie(stelle, liter);
+  }
+
+  if (typ === "fass50") {
+    z.faesser50 = Math.max(0, z.faesser50 - 1);
+    entferneFassWechselAusHistorie(stelle, liter);
+  }
+
+  if (typ === "frei") {
+    z.freieEingaben = Math.max(0, z.freieEingaben - 1);
+  }
+
+  if (anzeigeIst > ist) {
+    anzeigeIst = ist;
+  }
+
+  if (z.anzeigeLiter > z.liter) {
+    z.anzeigeLiter = z.liter;
+  }
+
+  const maximalerRueckstand = Math.max(0, ist - anzeigeIst);
+
+  if (autoAufholLiter > maximalerRueckstand) {
+    autoAufholLiter = maximalerRueckstand;
+  }
+
+  buchung.storniert = true;
+  buchung.storniertAm = new Date().toISOString();
+
+  buchungen.push(erstelleBuchung({
+    stelle,
+    liter: -liter,
+    typ: "storno",
+    stornoVon: buchung.id
+  }));
+
+  if (buchungen.length > 100) {
+    buchungen = buchungen.slice(-100);
+  }
+
+  speichereDaten();
+  sendeUpdate();
+
+  res.json({
+    ok: true,
+    storniert: buchung.id,
     ...getStatus()
   });
 });
