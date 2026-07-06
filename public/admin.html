@@ -139,6 +139,12 @@ button.secondary {
   color: #111;
 }
 
+.quick-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
 .feedback {
   min-height: 24px;
   text-align: center;
@@ -209,6 +215,10 @@ button.secondary {
     flex-direction: column;
   }
 
+  .quick-grid {
+    grid-template-columns: 1fr;
+  }
+
   button {
     width: 100%;
   }
@@ -243,6 +253,21 @@ button.secondary {
     <div class="progress-wrap">
       <div class="progress" id="progressBar"></div>
     </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Schnellzugriff</div>
+
+    <div class="quick-grid">
+      <button class="secondary" onclick="openPage('/display.html')">Anzeige öffnen</button>
+      <button class="secondary" onclick="openPage('/handy.html?stelle=1')">Zapfstelle 1</button>
+      <button class="secondary" onclick="openPage('/handy.html?stelle=2')">Zapfstelle 2</button>
+      <button class="secondary" onclick="openPage('/handy.html?stelle=3')">Zapfstelle 3</button>
+      <button class="secondary" onclick="openPage('/handy.html?stelle=4')">Zapfstelle 4</button>
+      <button class="secondary" onclick="openPage('/handy.html?stelle=5')">Zapfstelle 5</button>
+    </div>
+
+    <div class="small-note">Öffnet die Anzeige oder eine Zapfstelle in einem neuen Tab.</div>
   </div>
 
   <div class="feedback" id="feedback"></div>
@@ -316,6 +341,10 @@ async function postJSON(url, daten) {
   }
 
   return antwort.json();
+}
+
+function openPage(pfad) {
+  window.open(pfad, "_blank");
 }
 
 async function setPlan() {
