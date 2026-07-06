@@ -3,13 +3,17 @@ const http = require("http");
 const { Server } = require("socket.io");
 const bodyParser = require("body-parser");
 const fs = require("fs");
+const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(bodyParser.json());
-app.use(express.static("public"));
+app.use(express.static(path.join(__dirname, "public")));
+app.get("/", (req, res) => {
+  res.redirect("/admin.html");
+});
 
 const ANZAHL_ZAPFSTELLEN = 5;
 const FASSGROESSEN = [30, 50];
