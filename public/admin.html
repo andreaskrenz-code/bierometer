@@ -12,6 +12,33 @@
   box-sizing: border-box;
 }
 
+textarea {
+  width: 100%;
+  min-height: 90px;
+  resize: vertical;
+
+  padding: 12px 14px;
+  border-radius: 12px;
+
+  border: 1px solid rgba(255, 212, 0, 0.35);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff1a6;
+
+  font: inherit;
+  outline: none;
+}
+
+textarea:focus {
+  border-color: rgba(255, 212, 0, 0.8);
+  box-shadow: 0 0 0 2px rgba(255, 212, 0, 0.18);
+}
+
+.button-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 html, body {
   margin: 0;
   min-height: 100%;
@@ -357,6 +384,45 @@ button.log-storno {
     <div class="subtitle">Einrichtung, Anzeige-Steuerung, Füllstände und Verwaltung</div>
   </div>
 
+<div class="card">
+  <div class="section-title">Sprüche / Lauftext</div>
+
+  <div class="input-row">
+    <textarea id="tickerInput" maxlength="9000" rows="8" placeholder="Jede Zeile ist ein eigener Spruch."></textarea>
+  </div>
+
+  <div class="button-row">
+    <button onclick="setTickerText()">Sprüche speichern</button>
+  </div>
+
+  <div class="small-note">
+    Jede Zeile ist ein eigener Spruch. Das Display sucht später zufällig einen Spruch aus.
+  </div>
+</div>
+
+<div class="card">
+  <div class="section-title">Wichtige Nachricht / Durchsage</div>
+
+  <div class="input-row">
+    <input id="newsTitelInput" type="text" maxlength="40" placeholder="z.B. Wichtige Info">
+  </div>
+
+  <div class="input-row">
+    <textarea id="newsTextInput" maxlength="220" rows="4" placeholder="z.B. Antreten um 18:30 Uhr am Festzelt"></textarea>
+  </div>
+
+  <div class="button-row">
+    <button onclick="newsAnzeigen()">Nachricht anzeigen</button>
+    <button class="secondary" onclick="newsAusschalten()">Normale Anzeige weiterlaufen lassen</button>
+  </div>
+
+  <div class="small-note" id="newsStatusText">
+    Keine wichtige Nachricht aktiv.
+  </div>
+</div>
+
+
+
   <div class="feedback" id="feedback"></div>
 
   <div class="card" id="setupCard">
@@ -560,6 +626,11 @@ const aktuelleSpeed = document.getElementById("aktuelleSpeed");
 
 const fuellstandListe = document.getElementById("fuellstandListe");
 const quickGrid = document.getElementById("quickGrid");
+const tickerInput = document.getElementById("tickerInput");
+const newsTitelInput = document.getElementById("newsTitelInput");
+const newsTextInput = document.getElementById("newsTextInput");
+const newsStatusText = document.getElementById("newsStatusText");
+
 
 let aktuelleZapfstellenKonfig = [];
 let setupEditMode = false;
@@ -603,6 +674,35 @@ function zeigeFeedback(text, istFehler = false) {
     feedback.textContent = "";
     feedback.classList.remove("error");
   }, 3500);
+}
+
+async function setNews(aktiv) {
+  const titel = newsTitelInput.value.trim() || "Wichtige Info";
+  const text = newsTextInput.value.trim();
+
+  try {
+    await postJSON("/api/news", {
+      aktiv,
+      titel,
+      text
+    });
+
+    if (aktiv) {
+      zeigeFeedback("Wichtige Nachricht wird angezeigt.");
+    } else {
+      zeigeFeedback("Normale Anzeige läuft weiter.");
+    }
+  } catch (err) {
+    zeigeFeedback(err.message, true);
+  }
+}
+
+function newsAnzeigen() {
+  setNews(true);
+}
+
+function newsAusschalten() {
+  setNews(false);
 }
 
 async function postJSON(url, daten) {
@@ -735,6 +835,24 @@ async function setPlan() {
     await postJSON("/api/plan", { liter });
     input.value = "";
     zeigeFeedback(`Soll-Wert gesetzt: ${liter} Liter`);
+  } catch (err) {
+    zeigeFeedback(err.message, true);
+  }
+}
+
+async function setTickerText() {
+  const text = tickerInput.value;
+
+  try {
+    const data = await postJSON("/api/ticker", { text });
+
+    if (Array.isArray(data.tickerTexte)) {
+      tickerInput.value = data.tickerTexte.join("\n");
+    } else if (typeof data.tickerText === "string") {
+      tickerInput.value = data.tickerText;
+    }
+
+    zeigeFeedback("Sprüche gespeichert.");
   } catch (err) {
     zeigeFeedback(err.message, true);
   }
@@ -1013,6 +1131,30 @@ function updateAnzeige(data) {
   aktuelleZapfstellenKonfig = Array.isArray(data.zapfstellenKonfig)
     ? data.zapfstellenKonfig
     : [];
+
+  if (tickerInput && document.activeElement !== tickerInput) {
+    if (Array.isArray(data.tickerTexte)) {
+      tickerInput.value = data.tickerTexte.join("\n");
+    } else if (typeof data.tickerText === "string") {
+      tickerInput.value = data.tickerText;
+    }
+  }
+
+  if (typeof data.newsTitel === "string" && document.activeElement !== newsTitelInput) {
+    newsTitelInput.value = data.newsTitel;
+  }
+
+  if (typeof data.newsText === "string" && document.activeElement !== newsTextInput) {
+    newsTextInput.value = data.newsText;
+  }
+
+  if (typeof data.newsAktiv === "boolean") {
+    if (data.newsAktiv) {
+      newsStatusText.textContent = "Wichtige Nachricht ist AKTIV und liegt über der normalen Anzeige.";
+    } else {
+      newsStatusText.textContent = "Keine wichtige Nachricht aktiv. Normale Anzeige läuft.";
+    }
+  }
 
   if (!data.setupAbgeschlossen) {
     mainContent.classList.add("hidden");
