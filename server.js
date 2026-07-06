@@ -65,6 +65,13 @@ let anzeigeLaeuft = false;
 // Turbo-Aufholen aktiv bis Zeitpunkt
 let turboBis = 0;
 
+/*
+  Automatischer Aufhol-Puffer in Litern.
+  Wird gefüllt, wenn an einer Zapfstelle ein neues Fass gebucht wird,
+  obwohl dort rechnerisch noch Rest im alten Fass vorhanden war.
+*/
+let autoAufholLiter = 0;
+
 let startTime = Date.now();
 
 let zapfstellen = {};
@@ -78,7 +85,13 @@ function initialisiereZapfstellen() {
       liter: 0,
       faesser30: 0,
       faesser50: 0,
-      freieEingaben: 0
+      freieEingaben: 0,
+
+      /*
+        Wie viele Liter dieser Zapfstelle auf der Anzeige rechnerisch
+        schon zugeordnet wurden.
+      */
+      anzeigeLiter: 0
     };
   }
 }
@@ -98,6 +111,7 @@ function ladeDaten() {
     anzeigeIst = Number(daten.anzeigeIst) || 0;
     anzeigeLaeuft = Boolean(daten.anzeigeLaeuft);
     turboBis = Number(daten.turboBis) || 0;
+    autoAufholLiter = Number(daten.autoAufholLiter) || 0;
     startTime = Number(daten.startTime) || Date.now();
 
     if (anzeigeIst > ist) {
@@ -118,8 +132,33 @@ function ladeDaten() {
           liter: 0,
           faesser30: 0,
           faesser50: 0,
-          freieEingaben: 0
+          freieEingaben: 0,
+          anzeigeLiter: 0
         };
+      }
+
+      if (typeof zapfstellen[i].liter !== "number") {
+        zapfstellen[i].liter = 0;
+      }
+
+      if (typeof zapfstellen[i].faesser30 !== "number") {
+        zapfstellen[i].faesser30 = 0;
+      }
+
+      if (typeof zapfstellen[i].faesser50 !== "number") {
+        zapfstellen[i].faesser50 = 0;
+      }
+
+      if (typeof zapfstellen[i].freieEingaben !== "number") {
+        zapfstellen[i].freieEingaben = 0;
+      }
+
+      if (typeof zapfstellen[i].anzeigeLiter !== "number") {
+        zapfstellen[i].anzeigeLiter = 0;
+      }
+
+      if (zapfstellen[i].anzeigeLiter > zapfstellen[i].liter) {
+        zapfstellen[i].anzeigeLiter = zapfstellen[i].liter;
       }
     }
   } catch (err) {
@@ -135,6 +174,7 @@ function speichereDaten() {
       anzeigeIst,
       anzeigeLaeuft,
       turboBis,
+      autoAufholLiter,
       startTime,
       zapfstellen,
       buchungen
@@ -256,6 +296,7 @@ function getStatus() {
 
     anzeigeLaeuft,
     turboAktiv: Date.now() < turboBis,
+    autoAufholLiter,
 
     serverTime: Date.now(),
     averageLiterPerMs: getAverageLiterPerMs(),
@@ -288,24 +329,47 @@ function triggerLokaleAnzeige() {
 }
 
 function bucheLiter({ stelle, liter, typ }) {
+  const zapfstelle = zapfstellen[stelle];
+
+  /*
+    Automatisches Angleichen:
+    Wenn an dieser Zapfstelle ein neues Fass gebucht wird,
+    obwohl dort rechnerisch noch Rest im bisherigen Fass vorhanden war,
+    dann muss die Anzeige offenbar hinterherhängen.
+  */
+  if (typ === "fass30" || typ === "fass50") {
+    const rechnerischerRest = Math.max(0, zapfstelle.liter - zapfstelle.anzeigeLiter);
+
+    if (rechnerischerRest > 1) {
+      autoAufholLiter += rechnerischerRest;
+
+      buchungen.push({
+        zeit: new Date().toISOString(),
+        stelle,
+        liter: Number(rechnerischerRest.toFixed(1)),
+        typ: "autoAufholen"
+      });
+    }
+  }
+
   ist += liter;
 
   if (anzeigeIst > ist) {
     anzeigeIst = ist;
   }
 
-  zapfstellen[stelle].liter += liter;
+  zapfstelle.liter += liter;
 
   if (typ === "fass30") {
-    zapfstellen[stelle].faesser30 += 1;
+    zapfstelle.faesser30 += 1;
   }
 
   if (typ === "fass50") {
-    zapfstellen[stelle].faesser50 += 1;
+    zapfstelle.faesser50 += 1;
   }
 
   if (typ === "frei") {
-    zapfstellen[stelle].freieEingaben += 1;
+    zapfstelle.freieEingaben += 1;
   }
 
   buchungen.push({
@@ -346,10 +410,41 @@ function berechneAnzeigeGeschwindigkeit() {
     speed = Math.max(speed, TURBO_LITER_PRO_STUNDE);
   }
 
+  // Automatisches Aufholen pro Zapfstelle
+  if (autoAufholLiter > 0) {
+    speed = Math.max(speed, TURBO_LITER_PRO_STUNDE);
+  }
+
   // Absolute Obergrenze
   speed = Math.min(speed, TURBO_LITER_PRO_STUNDE);
 
   return speed;
+}
+
+/*
+  Verteilt den sichtbaren Anzeige-Fortschritt rechnerisch auf die Zapfstellen.
+  Dadurch weiß die App ungefähr, wie viel Liter pro Zapfstelle schon "verbraucht"
+  angezeigt wurden.
+*/
+function verteileAnzeigeFortschritt(deltaLiter) {
+  let rest = deltaLiter;
+
+  for (let i = 1; i <= ANZAHL_ZAPFSTELLEN; i++) {
+    if (rest <= 0) {
+      break;
+    }
+
+    const zapfstelle = zapfstellen[i];
+    const offen = Math.max(0, zapfstelle.liter - zapfstelle.anzeigeLiter);
+
+    if (offen <= 0) {
+      continue;
+    }
+
+    const anteil = Math.min(offen, rest);
+    zapfstelle.anzeigeLiter += anteil;
+    rest -= anteil;
+  }
 }
 
 function tickAnzeige() {
@@ -366,6 +461,8 @@ function tickAnzeige() {
     return;
   }
 
+  const vorher = anzeigeIst;
+
   const literProStunde = berechneAnzeigeGeschwindigkeit();
   const literProMs = literProStunde / 60 / 60 / 1000;
 
@@ -377,6 +474,16 @@ function tickAnzeige() {
 
   if (anzeigeIst > ist) {
     anzeigeIst = ist;
+  }
+
+  const deltaLiter = Math.max(0, anzeigeIst - vorher);
+
+  if (deltaLiter > 0) {
+    verteileAnzeigeFortschritt(deltaLiter);
+
+    if (autoAufholLiter > 0) {
+      autoAufholLiter = Math.max(0, autoAufholLiter - deltaLiter);
+    }
   }
 }
 
@@ -390,6 +497,7 @@ app.post("/api/reset", (req, res) => {
   anzeigeIst = 0;
   anzeigeLaeuft = false;
   turboBis = 0;
+  autoAufholLiter = 0;
   startTime = Date.now();
   buchungen = [];
   initialisiereZapfstellen();
@@ -464,6 +572,13 @@ app.post("/api/aufholen", (req, res) => {
 app.post("/api/angleichen", (req, res) => {
   // Anzeige sofort auf echten IST-Wert setzen
   anzeigeIst = ist;
+
+  // Auch die Zapfstellen rechnerisch angleichen
+  for (let i = 1; i <= ANZAHL_ZAPFSTELLEN; i++) {
+    zapfstellen[i].anzeigeLiter = zapfstellen[i].liter;
+  }
+
+  autoAufholLiter = 0;
 
   speichereDaten();
   sendeUpdate();
