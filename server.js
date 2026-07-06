@@ -18,7 +18,6 @@ app.get("/", (req, res) => {
 
 const DATA_FILE = path.join(__dirname, "bierometer-data.json");
 
-const ANZAHL_ZAPFSTELLEN = 5;
 const FASSGROESSEN = [30, 50];
 
 const LITER_PRO_PERSON_PRO_STUNDE = 0.5;
@@ -44,59 +43,113 @@ const SCHUETZENFEST_PLAN = [
   { tag: 1, tagName: "Montag", von: "20:00", bis: "24:00", personen: 280 }
 ];
 
-/*
-  Damit du auch außerhalb der Festzeiten testen kannst.
-  Während des Festplans wird automatisch nach Personenanzahl gerechnet.
-*/
 const TEST_LITER_PRO_STUNDE_AUSSERHALB_PLAN = 150;
 
-// Soll-Wert
-let plan = 0;
-
-// Echter IST-Wert: Summe aller gebuchten Fässer/Liter
-let ist = 0;
-
-// Sichtbarer IST-Wert: Das, was auf dem Display steht
-let anzeigeIst = 0;
-
-// Anzeige läuft oder pausiert
-let anzeigeLaeuft = false;
-
-// Turbo-Aufholen aktiv bis Zeitpunkt
-let turboBis = 0;
-
 /*
-  Automatischer Aufhol-Puffer in Litern.
-  Wird gefüllt, wenn an einer Zapfstelle ein neues Fass gebucht wird,
-  obwohl dort rechnerisch noch Rest im alten Fass vorhanden war.
+  Diese Werte werden später über die Admin-Ersteinrichtung gesetzt.
 */
-let autoAufholLiter = 0;
+let setupAbgeschlossen = false;
+let zapfstellenKonfig = [];
 
+let plan = 0;
+let ist = 0;
+let anzeigeIst = 0;
+let anzeigeLaeuft = false;
+let turboBis = 0;
+let autoAufholLiter = 0;
 let startTime = Date.now();
 
 let zapfstellen = {};
 let buchungen = [];
 
+function getZapfstelleConfig(id) {
+  return zapfstellenKonfig.find(z => z.id === Number(id));
+}
+
+function istGueltigeZapfstelle(stelle) {
+  return Boolean(getZapfstelleConfig(stelle));
+}
+
+function erstelleLeereZapfstelle() {
+  return {
+    liter: 0,
+    faesser30: 0,
+    faesser50: 0,
+    freieEingaben: 0,
+    anzeigeLiter: 0
+  };
+}
+
 function initialisiereZapfstellen() {
   zapfstellen = {};
 
-  for (let i = 1; i <= ANZAHL_ZAPFSTELLEN; i++) {
-    zapfstellen[i] = {
-      liter: 0,
-      faesser30: 0,
-      faesser50: 0,
-      freieEingaben: 0,
-
-      /*
-        Wie viele Liter dieser Zapfstelle auf der Anzeige rechnerisch
-        schon zugeordnet wurden.
-      */
-      anzeigeLiter: 0
-    };
+  for (const config of zapfstellenKonfig) {
+    zapfstellen[config.id] = erstelleLeereZapfstelle();
   }
 }
 
-initialisiereZapfstellen();
+function sichereZapfstellenStruktur() {
+  for (const config of zapfstellenKonfig) {
+    const id = config.id;
+
+    if (!zapfstellen[id]) {
+      zapfstellen[id] = erstelleLeereZapfstelle();
+    }
+
+    if (typeof zapfstellen[id].liter !== "number") {
+      zapfstellen[id].liter = 0;
+    }
+
+    if (typeof zapfstellen[id].faesser30 !== "number") {
+      zapfstellen[id].faesser30 = 0;
+    }
+
+    if (typeof zapfstellen[id].faesser50 !== "number") {
+      zapfstellen[id].faesser50 = 0;
+    }
+
+    if (typeof zapfstellen[id].freieEingaben !== "number") {
+      zapfstellen[id].freieEingaben = 0;
+    }
+
+    if (typeof zapfstellen[id].anzeigeLiter !== "number") {
+      zapfstellen[id].anzeigeLiter = 0;
+    }
+
+    if (zapfstellen[id].anzeigeLiter > zapfstellen[id].liter) {
+      zapfstellen[id].anzeigeLiter = zapfstellen[id].liter;
+    }
+  }
+}
+
+function normalisiereZapfstellenKonfig(liste) {
+  if (!Array.isArray(liste)) {
+    return [];
+  }
+
+  return liste.map((eintrag, index) => {
+    const id = index + 1;
+
+    const nameRaw = String(eintrag.name || `Zapfstelle ${id}`).trim();
+    const name = nameRaw || `Zapfstelle ${id}`;
+
+    let gewicht = Number(eintrag.gewicht);
+
+    if (!Number.isFinite(gewicht) || gewicht <= 0) {
+      gewicht = 1;
+    }
+
+    if (gewicht > 5) {
+      gewicht = 5;
+    }
+
+    return {
+      id,
+      name,
+      gewicht
+    };
+  });
+}
 
 function ladeDaten() {
   try {
@@ -105,6 +158,12 @@ function ladeDaten() {
     }
 
     const daten = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+
+    setupAbgeschlossen = Boolean(daten.setupAbgeschlossen);
+
+    if (Array.isArray(daten.zapfstellenKonfig)) {
+      zapfstellenKonfig = normalisiereZapfstellenKonfig(daten.zapfstellenKonfig);
+    }
 
     plan = Number(daten.plan) || 0;
     ist = Number(daten.ist) || 0;
@@ -126,41 +185,7 @@ function ladeDaten() {
       buchungen = daten.buchungen.slice(-100);
     }
 
-    for (let i = 1; i <= ANZAHL_ZAPFSTELLEN; i++) {
-      if (!zapfstellen[i]) {
-        zapfstellen[i] = {
-          liter: 0,
-          faesser30: 0,
-          faesser50: 0,
-          freieEingaben: 0,
-          anzeigeLiter: 0
-        };
-      }
-
-      if (typeof zapfstellen[i].liter !== "number") {
-        zapfstellen[i].liter = 0;
-      }
-
-      if (typeof zapfstellen[i].faesser30 !== "number") {
-        zapfstellen[i].faesser30 = 0;
-      }
-
-      if (typeof zapfstellen[i].faesser50 !== "number") {
-        zapfstellen[i].faesser50 = 0;
-      }
-
-      if (typeof zapfstellen[i].freieEingaben !== "number") {
-        zapfstellen[i].freieEingaben = 0;
-      }
-
-      if (typeof zapfstellen[i].anzeigeLiter !== "number") {
-        zapfstellen[i].anzeigeLiter = 0;
-      }
-
-      if (zapfstellen[i].anzeigeLiter > zapfstellen[i].liter) {
-        zapfstellen[i].anzeigeLiter = zapfstellen[i].liter;
-      }
-    }
+    sichereZapfstellenStruktur();
   } catch (err) {
     console.error("Daten konnten nicht geladen werden:", err.message);
   }
@@ -169,6 +194,9 @@ function ladeDaten() {
 function speichereDaten() {
   try {
     const daten = {
+      setupAbgeschlossen,
+      zapfstellenKonfig,
+
       plan,
       ist,
       anzeigeIst,
@@ -176,6 +204,7 @@ function speichereDaten() {
       turboBis,
       autoAufholLiter,
       startTime,
+
       zapfstellen,
       buchungen
     };
@@ -290,7 +319,6 @@ function berechneAnzeigeGeschwindigkeit() {
 
   let speed = Number(live.literProStunde) || 0;
 
-  // Automatische Aufholstufen
   if (rueckstand >= 200) {
     speed *= 3;
   } else if (rueckstand >= 100) {
@@ -299,52 +327,78 @@ function berechneAnzeigeGeschwindigkeit() {
     speed *= 1.5;
   }
 
-  // Manueller Turbo
   if (Date.now() < turboBis) {
     speed = Math.max(speed, TURBO_LITER_PRO_STUNDE);
   }
 
-  // Automatisches Aufholen pro Zapfstelle
   if (autoAufholLiter > 0) {
     speed = Math.max(speed, TURBO_LITER_PRO_STUNDE);
   }
 
-  // Absolute Obergrenze
   speed = Math.min(speed, TURBO_LITER_PRO_STUNDE);
 
   return speed;
 }
 
-/*
-  Fass-Prognose:
-  Berechnet pro Zapfstelle den rechnerischen Rest und eine ungefähre Leerzeit.
-  Das ist eine Schätzung, weil die App nicht exakt weiß, an welcher Zapfstelle
-  gerade wie viel gezapft wird.
-*/
-function getZapfstellenPrognose() {
-  const live = getLiveParameter();
-  const gesamtSpeed = berechneAnzeigeGeschwindigkeit();
+function getAktiveZapfstellenMitRest() {
+  const aktive = [];
 
-  const aktiveZapfstellen = [];
+  for (const config of zapfstellenKonfig) {
+    const id = config.id;
+    const z = zapfstellen[id];
 
-  for (let i = 1; i <= ANZAHL_ZAPFSTELLEN; i++) {
-    const zapfstelle = zapfstellen[i];
-    const restLiter = Math.max(0, zapfstelle.liter - zapfstelle.anzeigeLiter);
+    if (!z) {
+      continue;
+    }
+
+    const restLiter = Math.max(0, z.liter - z.anzeigeLiter);
 
     if (restLiter > 0.1) {
-      aktiveZapfstellen.push(i);
+      aktive.push(config);
     }
   }
 
-  const speedProZapfstelle = aktiveZapfstellen.length > 0
-    ? gesamtSpeed / aktiveZapfstellen.length
-    : 0;
+  return aktive;
+}
+
+function berechneSpeedProZapfstelle() {
+  const gesamtSpeed = berechneAnzeigeGeschwindigkeit();
+  const aktiveZapfstellen = getAktiveZapfstellenMitRest();
+
+  const speedMap = {};
+
+  for (const config of zapfstellenKonfig) {
+    speedMap[config.id] = 0;
+  }
+
+  const summeGewichte = aktiveZapfstellen.reduce((summe, config) => {
+    return summe + Number(config.gewicht || 1);
+  }, 0);
+
+  if (gesamtSpeed <= 0 || summeGewichte <= 0) {
+    return speedMap;
+  }
+
+  for (const config of aktiveZapfstellen) {
+    const gewicht = Number(config.gewicht || 1);
+    speedMap[config.id] = gesamtSpeed * (gewicht / summeGewichte);
+  }
+
+  return speedMap;
+}
+
+function getZapfstellenPrognose() {
+  const live = getLiveParameter();
+  const speedMap = berechneSpeedProZapfstelle();
 
   const prognose = {};
 
-  for (let i = 1; i <= ANZAHL_ZAPFSTELLEN; i++) {
-    const zapfstelle = zapfstellen[i];
-    const restLiter = Math.max(0, zapfstelle.liter - zapfstelle.anzeigeLiter);
+  for (const config of zapfstellenKonfig) {
+    const id = config.id;
+    const z = zapfstellen[id] || erstelleLeereZapfstelle();
+
+    const restLiter = Math.max(0, z.liter - z.anzeigeLiter);
+    const speedProZapfstelle = Number(speedMap[id] || 0);
 
     let minutenBisLeer = null;
     let leerUm = null;
@@ -373,17 +427,23 @@ function getZapfstellenPrognose() {
       status = "Rest vorhanden, Anzeige pausiert";
     }
 
-    prognose[i] = {
-      stelle: i,
+    prognose[id] = {
+      stelle: id,
+      name: config.name,
+      gewicht: Number(config.gewicht || 1),
+
       restLiter: Number(restLiter.toFixed(1)),
-      anzeigeLiter: Number(zapfstelle.anzeigeLiter.toFixed(1)),
-      gebuchtLiter: Number(zapfstelle.liter.toFixed(1)),
+      anzeigeLiter: Number(z.anzeigeLiter.toFixed(1)),
+      gebuchtLiter: Number(z.liter.toFixed(1)),
+
       minutenBisLeer,
       leerUm,
       status,
-      faesser30: zapfstelle.faesser30,
-      faesser50: zapfstelle.faesser50,
-      freieEingaben: zapfstelle.freieEingaben,
+
+      faesser30: z.faesser30,
+      faesser50: z.faesser50,
+      freieEingaben: z.freieEingaben,
+
       speedProZapfstelle: Number(speedProZapfstelle.toFixed(1)),
       liveModus: live.modus
     };
@@ -394,36 +454,31 @@ function getZapfstellenPrognose() {
 
 function getStatus() {
   return {
+    setupAbgeschlossen,
+    zapfstellenKonfig,
+
     plan,
-
-    // echter gebuchter Wert
     ist,
-
-    // sichtbarer Anzeige-Wert
     anzeigeIst,
-
     anzeigeLaeuft,
     turboAktiv: Date.now() < turboBis,
     autoAufholLiter,
 
     serverTime: Date.now(),
     averageLiterPerMs: getAverageLiterPerMs(),
+
     live: getLiveParameter(),
     aktuelleAnzeigeGeschwindigkeit: berechneAnzeigeGeschwindigkeit(),
+
     zapfstellen,
     zapfstellenPrognose: getZapfstellenPrognose(),
+
     letzteBuchungen: buchungen.slice(-10).reverse()
   };
 }
 
 function sendeUpdate() {
   io.emit("update", getStatus());
-}
-
-function istGueltigeZapfstelle(stelle) {
-  return Number.isInteger(stelle) &&
-    stelle >= 1 &&
-    stelle <= ANZAHL_ZAPFSTELLEN;
 }
 
 function triggerLokaleAnzeige() {
@@ -439,16 +494,14 @@ function triggerLokaleAnzeige() {
 }
 
 function bucheLiter({ stelle, liter, typ }) {
-  const zapfstelle = zapfstellen[stelle];
+  const z = zapfstellen[stelle];
 
-  /*
-    Automatisches Angleichen:
-    Wenn an dieser Zapfstelle ein neues Fass gebucht wird,
-    obwohl dort rechnerisch noch Rest im bisherigen Fass vorhanden war,
-    dann muss die Anzeige offenbar hinterherhängen.
-  */
+  if (!z) {
+    return;
+  }
+
   if (typ === "fass30" || typ === "fass50") {
-    const rechnerischerRest = Math.max(0, zapfstelle.liter - zapfstelle.anzeigeLiter);
+    const rechnerischerRest = Math.max(0, z.liter - z.anzeigeLiter);
 
     if (rechnerischerRest > 1) {
       autoAufholLiter += rechnerischerRest;
@@ -468,18 +521,18 @@ function bucheLiter({ stelle, liter, typ }) {
     anzeigeIst = ist;
   }
 
-  zapfstelle.liter += liter;
+  z.liter += liter;
 
   if (typ === "fass30") {
-    zapfstelle.faesser30 += 1;
+    z.faesser30 += 1;
   }
 
   if (typ === "fass50") {
-    zapfstelle.faesser50 += 1;
+    z.faesser50 += 1;
   }
 
   if (typ === "frei") {
-    zapfstelle.freieEingaben += 1;
+    z.freieEingaben += 1;
   }
 
   buchungen.push({
@@ -500,29 +553,53 @@ function bucheLiter({ stelle, liter, typ }) {
 
 let letzterAnzeigeTick = Date.now();
 
-/*
-  Verteilt den sichtbaren Anzeige-Fortschritt rechnerisch auf die Zapfstellen.
-  Dadurch weiß die App ungefähr, wie viel Liter pro Zapfstelle schon "verbraucht"
-  angezeigt wurden.
-*/
 function verteileAnzeigeFortschritt(deltaLiter) {
   let rest = deltaLiter;
 
-  for (let i = 1; i <= ANZAHL_ZAPFSTELLEN; i++) {
-    if (rest <= 0) {
+  if (rest <= 0) {
+    return;
+  }
+
+  for (let runde = 0; runde < 10; runde++) {
+    if (rest <= 0.0001) {
       break;
     }
 
-    const zapfstelle = zapfstellen[i];
-    const offen = Math.max(0, zapfstelle.liter - zapfstelle.anzeigeLiter);
+    const aktive = getAktiveZapfstellenMitRest();
 
-    if (offen <= 0) {
-      continue;
+    if (!aktive.length) {
+      break;
     }
 
-    const anteil = Math.min(offen, rest);
-    zapfstelle.anzeigeLiter += anteil;
-    rest -= anteil;
+    const summeGewichte = aktive.reduce((summe, config) => {
+      return summe + Number(config.gewicht || 1);
+    }, 0);
+
+    if (summeGewichte <= 0) {
+      break;
+    }
+
+    let verteilt = 0;
+
+    for (const config of aktive) {
+      const z = zapfstellen[config.id];
+      const offen = Math.max(0, z.liter - z.anzeigeLiter);
+      const gewicht = Number(config.gewicht || 1);
+
+      const anteilSoll = rest * (gewicht / summeGewichte);
+      const anteil = Math.min(offen, anteilSoll);
+
+      if (anteil > 0) {
+        z.anzeigeLiter += anteil;
+        verteilt += anteil;
+      }
+    }
+
+    rest -= verteilt;
+
+    if (verteilt <= 0.0001) {
+      break;
+    }
   }
 }
 
@@ -570,6 +647,32 @@ app.get("/api/status", (req, res) => {
   res.json(getStatus());
 });
 
+app.post("/api/setup", (req, res) => {
+  const anzahl = Number(req.body.anzahl);
+  const liste = req.body.zapfstellen;
+
+  if (!Number.isInteger(anzahl) || anzahl < 1 || anzahl > 30) {
+    return res.status(400).send("Ungültige Anzahl Zapfstellen");
+  }
+
+  if (!Array.isArray(liste) || liste.length !== anzahl) {
+    return res.status(400).send("Zapfstellen-Liste passt nicht zur Anzahl");
+  }
+
+  zapfstellenKonfig = normalisiereZapfstellenKonfig(liste);
+  setupAbgeschlossen = true;
+
+  sichereZapfstellenStruktur();
+
+  speichereDaten();
+  sendeUpdate();
+
+  res.json({
+    ok: true,
+    ...getStatus()
+  });
+});
+
 app.post("/api/reset", (req, res) => {
   plan = 0;
   ist = 0;
@@ -579,6 +682,7 @@ app.post("/api/reset", (req, res) => {
   autoAufholLiter = 0;
   startTime = Date.now();
   buchungen = [];
+
   initialisiereZapfstellen();
 
   speichereDaten();
@@ -635,7 +739,6 @@ app.post("/api/pause", (req, res) => {
 });
 
 app.post("/api/aufholen", (req, res) => {
-  // 5 Minuten Turbo-Aufholen
   turboBis = Date.now() + 5 * 60 * 1000;
   anzeigeLaeuft = true;
 
@@ -649,12 +752,14 @@ app.post("/api/aufholen", (req, res) => {
 });
 
 app.post("/api/angleichen", (req, res) => {
-  // Anzeige sofort auf echten IST-Wert setzen
   anzeigeIst = ist;
 
-  // Auch die Zapfstellen rechnerisch angleichen
-  for (let i = 1; i <= ANZAHL_ZAPFSTELLEN; i++) {
-    zapfstellen[i].anzeigeLiter = zapfstellen[i].liter;
+  for (const config of zapfstellenKonfig) {
+    const id = config.id;
+
+    if (zapfstellen[id]) {
+      zapfstellen[id].anzeigeLiter = zapfstellen[id].liter;
+    }
   }
 
   autoAufholLiter = 0;
@@ -671,6 +776,10 @@ app.post("/api/angleichen", (req, res) => {
 app.post("/api/fass", (req, res) => {
   const stelle = Number(req.body.stelle);
   const liter = Number(req.body.liter);
+
+  if (!setupAbgeschlossen) {
+    return res.status(400).send("Setup noch nicht abgeschlossen");
+  }
 
   if (!istGueltigeZapfstelle(stelle)) {
     return res.status(400).send("Ungültige Zapfstelle");
@@ -698,6 +807,10 @@ app.post("/api/verkauf", (req, res) => {
   const stelle = Number(req.body.stelle);
   const liter = Number(req.body.liter);
 
+  if (!setupAbgeschlossen) {
+    return res.status(400).send("Setup noch nicht abgeschlossen");
+  }
+
   if (!istGueltigeZapfstelle(stelle)) {
     return res.status(400).send("Ungültige Zapfstelle");
   }
@@ -724,20 +837,11 @@ io.on("connection", socket => {
   socket.emit("update", getStatus());
 });
 
-/*
-  Der Server zählt zentral die Anzeige hoch.
-  Dadurch starten neue Display-Fenster nicht mehr bei 0,
-  sondern bekommen sofort den aktuellen Anzeige-Wert.
-*/
 setInterval(() => {
   tickAnzeige();
   sendeUpdate();
 }, 1000);
 
-/*
-  Regelmäßig speichern, damit der Stand erhalten bleibt,
-  falls Render neu startet.
-*/
 setInterval(() => {
   speichereDaten();
 }, 10000);

@@ -25,26 +25,25 @@ body {
 }
 
 .app {
-  max-width: 560px;
+  max-width: 520px;
   margin: 0 auto;
 }
 
 .header {
   text-align: center;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 h1 {
   margin: 0;
-  font-size: 32px;
+  font-size: 30px;
   color: #ffd400;
 }
 
-.stelle {
+.subtitle {
   margin-top: 8px;
-  font-size: 26px;
-  font-weight: bold;
-  color: #fff0a0;
+  color: #ccc;
+  font-size: 15px;
 }
 
 .card {
@@ -55,117 +54,60 @@ h1 {
   margin-bottom: 16px;
 }
 
-.warnung {
-  background: #3b1111;
-  border: 1px solid #ff6b6b;
-  color: #ffd0d0;
-  padding: 14px;
-  border-radius: 14px;
-  text-align: center;
-  margin-bottom: 16px;
-  display: none;
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 17px;
+  margin: 9px 0;
 }
 
-.section-title {
-  font-size: 20px;
-  font-weight: bold;
+.info-row strong {
   color: #ffd400;
-  margin-bottom: 14px;
-  text-align: center;
-}
-
-.big-buttons {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
+  text-align: right;
 }
 
 button {
   width: 100%;
   border: none;
   border-radius: 18px;
-  padding: 22px 16px;
-  font-size: 24px;
+  padding: 20px;
+  font-size: 20px;
   font-weight: bold;
   cursor: pointer;
   color: #111;
   background: #ffd400;
-  min-height: 74px;
+  min-height: 68px;
+  margin-top: 12px;
 }
 
 button.secondary {
   background: #fff0a0;
 }
 
+button.dark {
+  background: #333;
+  color: #fff;
+}
+
+button.danger {
+  background: #b00020;
+  color: #fff;
+}
+
 button:active {
   transform: scale(0.98);
 }
 
-.input-row {
-  display: flex;
-  gap: 10px;
-}
-
 input {
   width: 100%;
-  padding: 15px;
+  padding: 16px;
   border-radius: 14px;
   border: 1px solid #555;
   background: #080808;
   color: #fff;
   font-size: 20px;
-}
-
-.status-mini {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.status-box {
-  background: #111;
-  border: 1px solid #333;
-  border-radius: 14px;
-  padding: 12px;
-  text-align: center;
-}
-
-.status-box span {
-  display: block;
-  color: #aaa;
-  font-size: 13px;
-}
-
-.status-box strong {
-  display: block;
-  color: #ffd400;
-  font-size: 24px;
-  margin-top: 4px;
-}
-
-.success {
-  display: none;
-  text-align: center;
-  background: #123519;
-  border: 2px solid #56d46f;
-}
-
-.success h2 {
-  margin: 0 0 10px;
-  color: #9dffae;
-  font-size: 28px;
-}
-
-.success .big {
-  color: #ffd400;
-  font-size: 38px;
-  font-weight: bold;
-  margin: 12px 0;
-}
-
-.success p {
-  color: #d8ffd8;
-  font-size: 17px;
+  margin-top: 10px;
 }
 
 .feedback {
@@ -173,10 +115,34 @@ input {
   text-align: center;
   font-size: 15px;
   color: #b8ffb8;
+  margin-bottom: 12px;
 }
 
 .feedback.error {
   color: #ff9b9b;
+}
+
+.success {
+  border: 2px solid #56d46f;
+  background: #102415;
+  text-align: center;
+}
+
+.success h2 {
+  color: #56d46f;
+  margin-top: 0;
+}
+
+.warning {
+  border: 2px solid #ffd400;
+  background: #292300;
+  text-align: center;
+}
+
+.error-card {
+  border: 2px solid #ff6b6b;
+  background: #2b1010;
+  text-align: center;
 }
 
 .small-note {
@@ -186,26 +152,8 @@ input {
   text-align: center;
 }
 
-@media (max-width: 390px) {
-  body {
-    padding: 12px;
-  }
-
-  h1 {
-    font-size: 28px;
-  }
-
-  .stelle {
-    font-size: 23px;
-  }
-
-  button {
-    font-size: 21px;
-  }
-
-  .input-row {
-    flex-direction: column;
-  }
+.hidden {
+  display: none;
 }
 </style>
 </head>
@@ -214,96 +162,115 @@ input {
 
 <div class="app">
   <div class="header">
-    <h1>Bierometer</h1>
-    <div class="stelle" id="stellenTitel">Zapfstelle wird geladen ...</div>
-  </div>
-
-  <div class="warnung" id="warnung">
-    Keine gültige Zapfstelle erkannt. Bitte QR-Code an Zapfstelle 1 bis 5 scannen.
-  </div>
-
-  <div class="card status-card" id="statusBereich">
-    <div class="status-mini">
-      <div class="status-box">
-        <span>SOLL</span>
-        <strong><span id="planWert">0</span> L</strong>
-      </div>
-
-      <div class="status-box">
-        <span>IST</span>
-        <strong><span id="istWert">0</span> L</strong>
-      </div>
-    </div>
-  </div>
-
-  <div class="card" id="buchungsBereich">
-    <div class="section-title">Fass angesteckt?</div>
-
-    <div class="big-buttons">
-      <button onclick="fassBuchen(50)">50 Liter Fass bestätigen</button>
-      <button class="secondary" onclick="fassBuchen(30)">30 Liter Fass bestätigen</button>
-    </div>
-
-    <div class="small-note">Bitte erst drücken, wenn das Fass wirklich an dieser Zapfstelle angeschlossen wurde.</div>
-  </div>
-
-  <div class="card" id="freiBereich">
-    <div class="section-title">Sonderfall / Korrektur</div>
-
-    <div class="input-row">
-      <input id="freiInput" type="number" inputmode="decimal" step="0.1" placeholder="Liter">
-      <button onclick="freieEingabe()">Buchen</button>
-    </div>
-  </div>
-
-  <div class="card success" id="successBereich">
-    <h2>Gebucht</h2>
-    <div class="big" id="successText">50 Liter</div>
-    <p>Die Eingabe wurde übernommen.</p>
-    <p>Du kannst die Seite jetzt schließen.</p>
+    <h1 id="titel">Zapfstelle</h1>
+    <div class="subtitle" id="untertitel">Bierometer Buchung</div>
   </div>
 
   <div class="feedback" id="feedback"></div>
+
+  <div class="card warning hidden" id="setupHinweis">
+    <h2>Noch nicht eingerichtet</h2>
+    <p>Die Zapfstellen wurden im Adminbereich noch nicht eingerichtet.</p>
+    <div class="small-note">Bitte zuerst die Admin-Seite öffnen und die Ersteinrichtung abschließen.</div>
+  </div>
+
+  <div class="card error-card hidden" id="ungueltigHinweis">
+    <h2>Ungültige Zapfstelle</h2>
+    <p>Diese Zapfstelle existiert in der aktuellen Konfiguration nicht.</p>
+    <div class="small-note" id="ungueltigText"></div>
+  </div>
+
+  <div id="buchungsBereich" class="hidden">
+    <div class="card">
+      <div class="info-row">
+        <span>Zapfstelle</span>
+        <strong id="zapfstelleName">-</strong>
+      </div>
+
+      <div class="info-row">
+        <span>Gewichtung</span>
+        <strong id="zapfstelleGewicht">1,0</strong>
+      </div>
+
+      <div class="info-row">
+        <span>Gebucht gesamt</span>
+        <strong><span id="gebuchtLiter">0,0</span> L</strong>
+      </div>
+
+      <div class="info-row">
+        <span>Rechnerischer Rest</span>
+        <strong><span id="restLiter">0,0</span> L</strong>
+      </div>
+
+      <div class="info-row">
+        <span>Status</span>
+        <strong id="statusText">-</strong>
+      </div>
+    </div>
+
+    <div class="card" id="eingabeKarte">
+      <button onclick="bucheFass(50)">50-Liter-Fass bestätigen</button>
+      <button class="secondary" onclick="bucheFass(30)">30-Liter-Fass bestätigen</button>
+      <button class="dark" onclick="zeigeFreieEingabe()">Sonderfall / freie Eingabe</button>
+
+      <div id="freieEingabeBox" class="hidden">
+        <input id="freieLiterInput" type="number" inputmode="decimal" step="0.1" min="0" placeholder="Liter eingeben, z.B. 12,5">
+        <button class="secondary" onclick="bucheFreieEingabe()">Freie Eingabe buchen</button>
+      </div>
+
+      <div class="small-note">
+        Nach der Buchung wird diese Eingabe gesperrt, damit nicht versehentlich doppelt gebucht wird.
+      </div>
+    </div>
+  </div>
+
+  <div class="card success hidden" id="erfolgKarte">
+    <h2>Gebucht</h2>
+    <p id="erfolgText">Die Buchung wurde gespeichert.</p>
+    <div class="small-note">Du kannst die Seite jetzt schließen.</div>
+  </div>
 </div>
 
 <script>
 const socket = io();
 
-const ANZAHL_ZAPFSTELLEN = 5;
-
 const params = new URLSearchParams(window.location.search);
 const stelle = Number(params.get("stelle"));
 
-const stellenTitel = document.getElementById("stellenTitel");
-const warnung = document.getElementById("warnung");
-const buchungsBereich = document.getElementById("buchungsBereich");
-const freiBereich = document.getElementById("freiBereich");
-const statusBereich = document.getElementById("statusBereich");
-const successBereich = document.getElementById("successBereich");
-const successText = document.getElementById("successText");
-
-const planWert = document.getElementById("planWert");
-const istWert = document.getElementById("istWert");
+const titel = document.getElementById("titel");
+const untertitel = document.getElementById("untertitel");
 const feedback = document.getElementById("feedback");
 
-let wurdeGebucht = false;
+const setupHinweis = document.getElementById("setupHinweis");
+const ungueltigHinweis = document.getElementById("ungueltigHinweis");
+const ungueltigText = document.getElementById("ungueltigText");
 
-function istGueltigeZapfstelle(wert) {
-  return Number.isInteger(wert) && wert >= 1 && wert <= ANZAHL_ZAPFSTELLEN;
-}
+const buchungsBereich = document.getElementById("buchungsBereich");
+const eingabeKarte = document.getElementById("eingabeKarte");
+const erfolgKarte = document.getElementById("erfolgKarte");
+const erfolgText = document.getElementById("erfolgText");
 
-if (istGueltigeZapfstelle(stelle)) {
-  stellenTitel.textContent = `Zapfstelle ${stelle}`;
-} else {
-  stellenTitel.textContent = "Ungültige Zapfstelle";
-  warnung.style.display = "block";
-  statusBereich.style.display = "none";
-  buchungsBereich.style.display = "none";
-  freiBereich.style.display = "none";
-}
+const zapfstelleName = document.getElementById("zapfstelleName");
+const zapfstelleGewicht = document.getElementById("zapfstelleGewicht");
+const gebuchtLiter = document.getElementById("gebuchtLiter");
+const restLiter = document.getElementById("restLiter");
+const statusText = document.getElementById("statusText");
+
+const freieEingabeBox = document.getElementById("freieEingabeBox");
+const freieLiterInput = document.getElementById("freieLiterInput");
+
+let aktuelleConfig = null;
+let bereitsGebucht = false;
 
 function normalisiereZahl(wert) {
   return Number(String(wert).replace(",", "."));
+}
+
+function formatLiter(wert) {
+  return Number(wert || 0).toLocaleString("de-DE", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  });
 }
 
 function zeigeFeedback(text, istFehler = false) {
@@ -334,28 +301,30 @@ async function postJSON(url, daten) {
   return antwort.json();
 }
 
-function zeigeErfolg(liter) {
-  wurdeGebucht = true;
-
-  statusBereich.style.display = "none";
-  buchungsBereich.style.display = "none";
-  freiBereich.style.display = "none";
-
-  successText.textContent = `${liter} Liter`;
-  successBereich.style.display = "block";
+function zeigeFreieEingabe() {
+  freieEingabeBox.classList.toggle("hidden");
+  freieLiterInput.focus();
 }
 
-async function fassBuchen(liter) {
-  if (wurdeGebucht) {
+function sperreNachBuchung(liter) {
+  bereitsGebucht = true;
+
+  eingabeKarte.classList.add("hidden");
+  erfolgKarte.classList.remove("hidden");
+  erfolgText.textContent = `${formatLiter(liter)} Liter wurden für ${aktuelleConfig.name} gebucht.`;
+}
+
+async function bucheFass(liter) {
+  if (bereitsGebucht) {
     return;
   }
 
-  if (!istGueltigeZapfstelle(stelle)) {
-    zeigeFeedback("Keine gültige Zapfstelle.", true);
+  if (!aktuelleConfig) {
+    zeigeFeedback("Zapfstelle ist nicht gültig.", true);
     return;
   }
 
-  const sicher = confirm(`${liter} Liter an Zapfstelle ${stelle} bestätigen?`);
+  const sicher = confirm(`${liter}-Liter-Fass für ${aktuelleConfig.name} buchen?`);
 
   if (!sicher) {
     return;
@@ -367,31 +336,30 @@ async function fassBuchen(liter) {
       liter
     });
 
-    zeigeErfolg(liter);
+    sperreNachBuchung(liter);
   } catch (err) {
     zeigeFeedback(err.message, true);
   }
 }
 
-async function freieEingabe() {
-  if (wurdeGebucht) {
+async function bucheFreieEingabe() {
+  if (bereitsGebucht) {
     return;
   }
 
-  if (!istGueltigeZapfstelle(stelle)) {
-    zeigeFeedback("Keine gültige Zapfstelle.", true);
+  if (!aktuelleConfig) {
+    zeigeFeedback("Zapfstelle ist nicht gültig.", true);
     return;
   }
 
-  const input = document.getElementById("freiInput");
-  const liter = normalisiereZahl(input.value);
+  const liter = normalisiereZahl(freieLiterInput.value);
 
   if (!Number.isFinite(liter) || liter <= 0) {
     zeigeFeedback("Bitte gültige Literzahl eingeben.", true);
     return;
   }
 
-  const sicher = confirm(`${liter} Liter an Zapfstelle ${stelle} buchen?`);
+  const sicher = confirm(`${formatLiter(liter)} Liter für ${aktuelleConfig.name} buchen?`);
 
   if (!sicher) {
     return;
@@ -403,23 +371,93 @@ async function freieEingabe() {
       liter
     });
 
-    input.value = "";
-    zeigeErfolg(liter);
+    sperreNachBuchung(liter);
   } catch (err) {
     zeigeFeedback(err.message, true);
   }
 }
 
+function zeigeNurSetupHinweis() {
+  setupHinweis.classList.remove("hidden");
+  ungueltigHinweis.classList.add("hidden");
+  buchungsBereich.classList.add("hidden");
+}
+
+function zeigeNurUngueltigHinweis(zapfstellenKonfig) {
+  setupHinweis.classList.add("hidden");
+  ungueltigHinweis.classList.remove("hidden");
+  buchungsBereich.classList.add("hidden");
+
+  const ids = Array.isArray(zapfstellenKonfig)
+    ? zapfstellenKonfig.map(z => z.id).join(", ")
+    : "-";
+
+  ungueltigText.textContent = `Aufgerufen wurde stelle=${stelle}. Gültige Zapfstellen: ${ids}`;
+}
+
+function zeigeBuchungsBereich() {
+  setupHinweis.classList.add("hidden");
+  ungueltigHinweis.classList.add("hidden");
+  buchungsBereich.classList.remove("hidden");
+}
+
 function updateAnzeige(data) {
-  if (wurdeGebucht) {
+  if (!Number.isInteger(stelle) || stelle <= 0) {
+    zeigeNurUngueltigHinweis(data.zapfstellenKonfig || []);
     return;
   }
 
-  const plan = Number(data.plan) || 0;
-  const ist = Number(data.ist) || 0;
+  if (!data.setupAbgeschlossen) {
+    zeigeNurSetupHinweis();
+    return;
+  }
 
-  planWert.textContent = Math.round(plan);
-  istWert.textContent = Math.round(ist);
+  const liste = Array.isArray(data.zapfstellenKonfig)
+    ? data.zapfstellenKonfig
+    : [];
+
+  const config = liste.find(z => Number(z.id) === stelle);
+
+  if (!config) {
+    zeigeNurUngueltigHinweis(liste);
+    return;
+  }
+
+  aktuelleConfig = config;
+
+  titel.textContent = config.name;
+  untertitel.textContent = `Zapfstelle ${config.id}`;
+  zapfstelleName.textContent = config.name;
+
+  zapfstelleGewicht.textContent = Number(config.gewicht || 1).toLocaleString("de-DE", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  });
+
+  const prognose = data.zapfstellenPrognose && data.zapfstellenPrognose[stelle]
+    ? data.zapfstellenPrognose[stelle]
+    : null;
+
+  if (prognose) {
+    gebuchtLiter.textContent = formatLiter(prognose.gebuchtLiter);
+    restLiter.textContent = formatLiter(prognose.restLiter);
+
+    if (prognose.status === "bald leer") {
+      statusText.textContent = "BALD LEER";
+      statusText.style.color = "#ffd400";
+    } else if (prognose.status === "fast leer") {
+      statusText.textContent = "FAST LEER";
+      statusText.style.color = "#ff9b9b";
+    } else if (prognose.status === "kein aktives Fass") {
+      statusText.textContent = "kein aktives Fass";
+      statusText.style.color = "#aaa";
+    } else {
+      statusText.textContent = prognose.status || "läuft";
+      statusText.style.color = "#b8ffb8";
+    }
+  }
+
+  zeigeBuchungsBereich();
 }
 
 socket.on("update", data => {
@@ -427,14 +465,7 @@ socket.on("update", data => {
 });
 
 socket.on("reset", () => {
-  if (wurdeGebucht) {
-    return;
-  }
-
-  updateAnzeige({
-    plan: 0,
-    ist: 0
-  });
+  // Der Server sendet direkt danach wieder ein vollständiges Update.
 });
 </script>
 

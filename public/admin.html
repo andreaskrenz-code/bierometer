@@ -25,7 +25,7 @@ body {
 }
 
 .app {
-  max-width: 620px;
+  max-width: 760px;
   margin: 0 auto;
 }
 
@@ -60,19 +60,20 @@ h1 {
   box-shadow: 0 0 18px rgba(255, 212, 0, 0.2);
 }
 
-
-
-.status-row {
+.status-row,
+.info-row {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  font-size: 20px;
+  font-size: 18px;
   margin: 9px 0;
 }
 
-.status-row strong {
+.status-row strong,
+.info-row strong {
   color: #ffd400;
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .progress-wrap {
@@ -98,19 +99,6 @@ h1 {
   margin-bottom: 12px;
 }
 
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  margin: 8px 0;
-  font-size: 16px;
-}
-
-.info-row strong {
-  color: #ffd400;
-  text-align: right;
-}
-
 .input-row {
   display: flex;
   gap: 10px;
@@ -123,14 +111,14 @@ input {
   border: 1px solid #555;
   background: #080808;
   color: #fff;
-  font-size: 20px;
+  font-size: 18px;
 }
 
 button {
   border: none;
   border-radius: 16px;
   padding: 16px;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: bold;
   cursor: pointer;
   color: #111;
@@ -152,6 +140,12 @@ button.secondary {
   width: 100%;
   background: #fff0a0;
   color: #111;
+}
+
+button.dark {
+  width: 100%;
+  background: #333;
+  color: #fff;
 }
 
 .quick-grid {
@@ -176,6 +170,91 @@ button.secondary {
   display: grid;
   grid-template-columns: 1fr;
   gap: 12px;
+}
+
+.setup-row {
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 14px;
+  padding: 12px;
+  margin-top: 10px;
+}
+
+.setup-row-title {
+  color: #ffd400;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.setup-fields {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: 10px;
+}
+
+.fuellstand-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fuellstand-entry {
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.fuellstand-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.fuellstand-head strong {
+  color: #ffd400;
+}
+
+.fuellstand-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  font-size: 14px;
+  color: #ddd;
+}
+
+.fuellstand-details span {
+  color: #aaa;
+}
+
+.fuellstand-status {
+  margin-top: 8px;
+  font-weight: bold;
+  text-align: center;
+  padding: 7px;
+  border-radius: 10px;
+  background: #222;
+}
+
+.status-laeuft {
+  color: #b8ffb8;
+}
+
+.status-bald {
+  color: #ffd400;
+  background: #3b3100;
+}
+
+.status-fast {
+  color: #ff9b9b;
+  background: #3b1111;
+}
+
+.status-kein {
+  color: #aaa;
 }
 
 .log {
@@ -213,7 +292,11 @@ button.secondary {
   text-align: center;
 }
 
-@media (max-width: 420px) {
+.hidden {
+  display: none;
+}
+
+@media (max-width: 520px) {
   body {
     padding: 12px;
   }
@@ -222,15 +305,17 @@ button.secondary {
     font-size: 28px;
   }
 
-  .status-row {
-    font-size: 18px;
-  }
-
-  .input-row {
+  .input-row,
+  .setup-fields {
+    grid-template-columns: 1fr;
     flex-direction: column;
   }
 
   .quick-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fuellstand-details {
     grid-template-columns: 1fr;
   }
 
@@ -246,130 +331,159 @@ button.secondary {
 <div class="app">
   <div class="header">
     <h1>Bierometer Admin</h1>
-    <div class="subtitle">Soll-Wert, Live-Plan und Verwaltung</div>
-  </div>
-
-  <div class="card status-card">
-    <div class="status-row">
-      <span>SOLL</span>
-      <strong><span id="planWert">0</span> Liter</strong>
-    </div>
-
-    <div class="status-row">
-      <span>IST</span>
-      <strong><span id="istWert">0</span> Liter</strong>
-    </div>
-
-    <div class="status-row">
-      <span>Erreicht</span>
-      <strong><span id="prozentWert">0</span>%</strong>
-    </div>
-
-    <div class="progress-wrap">
-      <div class="progress" id="progressBar"></div>
-    </div>
-  </div>
-
-    <div class="card">
-    <div class="section-title">Anzeige-Steuerung</div>
-
-    <div class="info-row">
-      <span>Status</span>
-      <strong id="anzeigeStatus">PAUSIERT</strong>
-    </div>
-
-    <div class="info-row">
-      <span>Sichtbare Anzeige</span>
-      <strong><span id="anzeigeIstWert">0</span> Liter</strong>
-    </div>
-
-    <div class="quick-grid">
-      <button onclick="startAnzeige()">START</button>
-      <button class="secondary" onclick="pauseAnzeige()">PAUSE</button>
-      <button class="secondary" onclick="aufholenAnzeige()">AUFHOLEN</button>
-      <button class="secondary" onclick="angleichenAnzeige()">SOFORT ANGLEICHEN</button>
-    </div>
-
-    <div class="small-note">
-      START lässt die Anzeige weiterzählen. PAUSE stoppt nur die sichtbare Anzeige, Buchungen gehen nicht verloren.
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="section-title">Live-Zapfplan</div>
-
-    <div class="info-row">
-      <span>Aktueller Zeitraum</span>
-      <strong id="liveZeitraum">-</strong>
-    </div>
-
-    <div class="info-row">
-      <span>Uhrzeit</span>
-      <strong id="liveUhrzeit">-</strong>
-    </div>
-
-    <div class="info-row">
-      <span>Erwartete Leute</span>
-      <strong id="livePersonen">0</strong>
-    </div>
-
-    <div class="info-row">
-      <span>Anzeige-Geschwindigkeit</span>
-      <strong><span id="liveSpeed">0</span> L/h</strong>
-    </div>
-
-    <div class="info-row">
-      <span>Nachlaufzeit</span>
-      <strong><span id="liveNachlauf">0</span> Min.</strong>
-    </div>
-
-    <div class="small-note">
-      Die Anzeige zählt nur bis zum wirklich gebuchten IST-Wert. Der Plan bestimmt nur die Geschwindigkeit.
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="section-title">Schnellzugriff</div>
-
-    <div class="quick-grid">
-      <button class="secondary" onclick="openPage('/display.html')">Anzeige öffnen</button>
-      <button class="secondary" onclick="openPage('/handy.html?stelle=1')">Zapfstelle 1</button>
-      <button class="secondary" onclick="openPage('/handy.html?stelle=2')">Zapfstelle 2</button>
-      <button class="secondary" onclick="openPage('/handy.html?stelle=3')">Zapfstelle 3</button>
-      <button class="secondary" onclick="openPage('/handy.html?stelle=4')">Zapfstelle 4</button>
-      <button class="secondary" onclick="openPage('/handy.html?stelle=5')">Zapfstelle 5</button>
-    </div>
-
-    <div class="small-note">Öffnet die Anzeige oder eine Zapfstelle in einem neuen Tab.</div>
+    <div class="subtitle">Einrichtung, Anzeige-Steuerung, Füllstände und Verwaltung</div>
   </div>
 
   <div class="feedback" id="feedback"></div>
 
-  <div class="card">
-    <div class="section-title">Soll-Wert setzen</div>
+  <div class="card" id="setupCard">
+    <div class="section-title">Ersteinrichtung Zapfstellen</div>
 
-    <div class="input-row">
-      <input id="planInput" type="number" inputmode="decimal" step="1" placeholder="z.B. 1000">
-      <button onclick="setPlan()">Speichern</button>
+    <div class="small-note">
+      Lege fest, wie viele Zapfstellen ihr habt, wie sie heißen und wie stark sie frequentiert sind.
     </div>
 
-    <div class="small-note">Der Soll-Wert erscheint direkt auf der OBS-Anzeige.</div>
-  </div>
-
-  <div class="card">
-    <div class="section-title">Verwaltung</div>
-
-    <div class="grid">
-      <button class="danger" onclick="resetBierometer()">Bierometer komplett zurücksetzen</button>
+    <div class="input-row" style="margin-top: 14px;">
+      <input id="setupAnzahl" type="number" min="1" max="30" step="1" value="5" placeholder="Anzahl Zapfstellen">
+      <button onclick="generiereSetup()">Formular erzeugen</button>
     </div>
 
-    <div class="small-note">Setzt Soll, Ist, Zapfstellen und letzte Buchungen zurück.</div>
+    <div id="setupListe"></div>
+
+    <div class="quick-grid" style="margin-top: 14px;">
+      <button onclick="speichereSetup()">Einrichtung speichern</button>
+      <button class="dark" id="setupAbbrechenButton" onclick="setupBearbeitungAbbrechen()">Abbrechen</button>
+    </div>
+
+    <div class="small-note">
+      Gewichtung: 1,0 = normal. 1,5 = stärker frequentiert. 0,6 = weniger frequentiert.
+    </div>
   </div>
 
-  <div class="card">
-    <div class="section-title">Letzte Buchungen</div>
-    <div class="log" id="logListe">
-      <div class="small-note">Noch keine Buchungen geladen.</div>
+  <div id="mainContent" class="hidden">
+    <div class="card status-card">
+      <div class="status-row">
+        <span>SOLL</span>
+        <strong><span id="planWert">0</span> Liter</strong>
+      </div>
+
+      <div class="status-row">
+        <span>IST gebucht</span>
+        <strong><span id="istWert">0</span> Liter</strong>
+      </div>
+
+      <div class="status-row">
+        <span>Erreicht</span>
+        <strong><span id="prozentWert">0</span>%</strong>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress" id="progressBar"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Anzeige-Steuerung</div>
+
+      <div class="info-row">
+        <span>Status</span>
+        <strong id="anzeigeStatus">PAUSIERT</strong>
+      </div>
+
+      <div class="info-row">
+        <span>Sichtbare Anzeige</span>
+        <strong><span id="anzeigeIstWert">0</span> Liter</strong>
+      </div>
+
+      <div class="info-row">
+        <span>Automatisches Aufholen</span>
+        <strong><span id="autoAufholWert">0,0</span> Liter</strong>
+      </div>
+
+      <div class="quick-grid">
+        <button onclick="startAnzeige()">START</button>
+        <button class="secondary" onclick="pauseAnzeige()">PAUSE</button>
+        <button class="secondary" onclick="aufholenAnzeige()">AUFHOLEN</button>
+        <button class="secondary" onclick="angleichenAnzeige()">SOFORT ANGLEICHEN</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Live-Zapfplan</div>
+
+      <div class="info-row">
+        <span>Aktueller Zeitraum</span>
+        <strong id="liveZeitraum">-</strong>
+      </div>
+
+      <div class="info-row">
+        <span>Uhrzeit</span>
+        <strong id="liveUhrzeit">-</strong>
+      </div>
+
+      <div class="info-row">
+        <span>Erwartete Leute</span>
+        <strong id="livePersonen">0</strong>
+      </div>
+
+      <div class="info-row">
+        <span>Plan-Geschwindigkeit</span>
+        <strong><span id="liveSpeed">0</span> L/h</strong>
+      </div>
+
+      <div class="info-row">
+        <span>Aktuelle Anzeige-Geschwindigkeit</span>
+        <strong><span id="aktuelleSpeed">0</span> L/h</strong>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Füllstände / Fass-Prognose</div>
+
+      <div class="fuellstand-liste" id="fuellstandListe">
+        <div class="small-note">Noch keine Füllstände geladen.</div>
+      </div>
+
+      <div class="small-note">
+        Die Füllstände werden nach Zapfstellen-Gewichtung berechnet.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Schnellzugriff</div>
+
+      <div class="quick-grid" id="quickGrid">
+        <button class="secondary" onclick="openPage('/display.html')">Anzeige öffnen</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Soll-Wert setzen</div>
+
+      <div class="input-row">
+        <input id="planInput" type="number" inputmode="decimal" step="1" placeholder="z.B. 1000">
+        <button onclick="setPlan()">Speichern</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Verwaltung</div>
+
+      <div class="grid">
+        <button class="secondary" onclick="setupBearbeiten()">Zapfstellen bearbeiten</button>
+        <button class="danger" onclick="resetBierometer()">Bierometer komplett zurücksetzen</button>
+      </div>
+
+      <div class="small-note">
+        Reset löscht Soll, Ist, Anzeige, Füllstände und Buchungen. Die Zapfstellen-Konfiguration bleibt erhalten.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Letzte Buchungen</div>
+      <div class="log" id="logListe">
+        <div class="small-note">Noch keine Buchungen geladen.</div>
+      </div>
     </div>
   </div>
 </div>
@@ -377,24 +491,46 @@ button.secondary {
 <script>
 const socket = io();
 
+const feedback = document.getElementById("feedback");
+
+const setupCard = document.getElementById("setupCard");
+const setupListe = document.getElementById("setupListe");
+const setupAnzahl = document.getElementById("setupAnzahl");
+const setupAbbrechenButton = document.getElementById("setupAbbrechenButton");
+const mainContent = document.getElementById("mainContent");
+
 const planWert = document.getElementById("planWert");
 const istWert = document.getElementById("istWert");
 const prozentWert = document.getElementById("prozentWert");
 const progressBar = document.getElementById("progressBar");
-const feedback = document.getElementById("feedback");
 const logListe = document.getElementById("logListe");
 
 const anzeigeStatus = document.getElementById("anzeigeStatus");
 const anzeigeIstWert = document.getElementById("anzeigeIstWert");
+const autoAufholWert = document.getElementById("autoAufholWert");
 
 const liveZeitraum = document.getElementById("liveZeitraum");
 const liveUhrzeit = document.getElementById("liveUhrzeit");
 const livePersonen = document.getElementById("livePersonen");
 const liveSpeed = document.getElementById("liveSpeed");
-const liveNachlauf = document.getElementById("liveNachlauf");
+const aktuelleSpeed = document.getElementById("aktuelleSpeed");
+
+const fuellstandListe = document.getElementById("fuellstandListe");
+const quickGrid = document.getElementById("quickGrid");
+
+let aktuelleZapfstellenKonfig = [];
+let setupEditMode = false;
+let letzteQuickLinksJSON = "";
 
 function normalisiereZahl(wert) {
   return Number(String(wert).replace(",", "."));
+}
+
+function formatLiter(wert) {
+  return Number(wert || 0).toLocaleString("de-DE", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  });
 }
 
 function zeigeFeedback(text, istFehler = false) {
@@ -405,7 +541,7 @@ function zeigeFeedback(text, istFehler = false) {
   window.feedbackTimer = setTimeout(() => {
     feedback.textContent = "";
     feedback.classList.remove("error");
-  }, 3000);
+  }, 3500);
 }
 
 async function postJSON(url, daten) {
@@ -429,6 +565,102 @@ function openPage(pfad) {
   window.open(pfad, "_blank");
 }
 
+function generiereSetup(vorhandeneListe = null) {
+  const anzahl = Number(setupAnzahl.value);
+
+  if (!Number.isInteger(anzahl) || anzahl < 1 || anzahl > 30) {
+    zeigeFeedback("Bitte eine Anzahl zwischen 1 und 30 eingeben.", true);
+    return;
+  }
+
+  const vorhandene = Array.isArray(vorhandeneListe)
+    ? vorhandeneListe
+    : aktuelleZapfstellenKonfig;
+
+  setupListe.innerHTML = "";
+
+  for (let i = 1; i <= anzahl; i++) {
+    const alt = vorhandene.find(z => Number(z.id) === i) || {};
+
+    const name = alt.name || `Zapfstelle ${i}`;
+    const gewicht = Number.isFinite(Number(alt.gewicht)) ? Number(alt.gewicht) : 1;
+
+    setupListe.innerHTML += `
+      <div class="setup-row">
+        <div class="setup-row-title">Zapfstelle ${i}</div>
+
+        <div class="setup-fields">
+          <input class="setup-name" data-id="${i}" value="${name.replaceAll('"', "&quot;")}" placeholder="Name">
+          <input class="setup-gewicht" data-id="${i}" type="number" min="0.1" max="5" step="0.1" value="${gewicht}" placeholder="Gewicht">
+        </div>
+      </div>
+    `;
+  }
+}
+
+async function speichereSetup() {
+  const nameInputs = Array.from(document.querySelectorAll(".setup-name"));
+  const gewichtInputs = Array.from(document.querySelectorAll(".setup-gewicht"));
+
+  const zapfstellen = nameInputs.map(input => {
+    const id = Number(input.dataset.id);
+    const gewichtInput = gewichtInputs.find(g => Number(g.dataset.id) === id);
+
+    return {
+      name: input.value.trim() || `Zapfstelle ${id}`,
+      gewicht: normalisiereZahl(gewichtInput.value)
+    };
+  });
+
+  if (!zapfstellen.length) {
+    zeigeFeedback("Bitte zuerst das Formular erzeugen.", true);
+    return;
+  }
+
+  for (const z of zapfstellen) {
+    if (!Number.isFinite(z.gewicht) || z.gewicht <= 0 || z.gewicht > 5) {
+      zeigeFeedback("Alle Gewichtungen müssen zwischen 0,1 und 5 liegen.", true);
+      return;
+    }
+  }
+
+  try {
+    await postJSON("/api/setup", {
+      anzahl: zapfstellen.length,
+      zapfstellen
+    });
+
+    setupEditMode = false;
+    zeigeFeedback("Zapfstellen gespeichert.");
+  } catch (err) {
+    zeigeFeedback(err.message, true);
+  }
+}
+
+function setupBearbeiten() {
+  setupEditMode = true;
+  setupCard.classList.remove("hidden");
+  setupAbbrechenButton.classList.remove("hidden");
+
+  const anzahl = aktuelleZapfstellenKonfig.length || 5;
+  setupAnzahl.value = anzahl;
+  generiereSetup(aktuelleZapfstellenKonfig);
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
+}
+
+function setupBearbeitungAbbrechen() {
+  setupEditMode = false;
+
+  if (aktuelleZapfstellenKonfig.length > 0) {
+    setupCard.classList.add("hidden");
+    mainContent.classList.remove("hidden");
+  }
+}
+
 async function setPlan() {
   const input = document.getElementById("planInput");
   const liter = normalisiereZahl(input.value);
@@ -439,10 +671,7 @@ async function setPlan() {
   }
 
   try {
-    await postJSON("/api/plan", {
-      liter
-    });
-
+    await postJSON("/api/plan", { liter });
     input.value = "";
     zeigeFeedback(`Soll-Wert gesetzt: ${liter} Liter`);
   } catch (err) {
@@ -499,7 +728,7 @@ async function resetBierometer() {
     return;
   }
 
-  const nochmal = confirm("Sicher? Dadurch werden Soll, Ist, Zapfstellen und Buchungen gelöscht.");
+  const nochmal = confirm("Sicher? Dadurch werden Soll, Ist, Anzeige, Füllstände und Buchungen gelöscht.");
 
   if (!nochmal) {
     return;
@@ -513,38 +742,111 @@ async function resetBierometer() {
   }
 }
 
-function updateAnzeige(data) {
-  const plan = Number(data.plan) || 0;
-  const ist = Number(data.ist) || 0;
-  const sichtbarerIst = Number(data.anzeigeIst) || 0;
-
-anzeigeIstWert.textContent = Math.round(sichtbarerIst);
-
-anzeigeStatus.textContent = data.anzeigeLaeuft ? "LÄUFT" : "PAUSIERT";
-anzeigeStatus.style.color = data.anzeigeLaeuft ? "#56d46f" : "#ffd400";
-
-
-  planWert.textContent = Math.round(plan);
-  istWert.textContent = Math.round(ist);
-
-  const prozent = plan > 0
-    ? Math.min(100, (ist / plan) * 100)
-    : 0;
-
-  prozentWert.textContent = Math.round(prozent);
-  progressBar.style.width = `${prozent}%`;
-
-  if (data.live) {
-    liveZeitraum.textContent = data.live.text || "-";
-    liveUhrzeit.textContent = data.live.uhrzeit || "-";
-    livePersonen.textContent = data.live.personen || 0;
-    liveSpeed.textContent = Math.round(Number(data.live.literProStunde) || 0);
-    liveNachlauf.textContent = data.live.nachlaufMinuten || 0;
+function renderQuickLinks(zapfstellenKonfig) {
+  if (!Array.isArray(zapfstellenKonfig)) {
+    return;
   }
 
-  if (Array.isArray(data.letzteBuchungen)) {
-    renderLog(data.letzteBuchungen);
+  const json = JSON.stringify(zapfstellenKonfig);
+
+  if (json === letzteQuickLinksJSON) {
+    return;
   }
+
+  letzteQuickLinksJSON = json;
+
+  quickGrid.innerHTML = `
+    <button class="secondary" onclick="openPage('/display.html')">Anzeige öffnen</button>
+  `;
+
+  quickGrid.innerHTML += zapfstellenKonfig.map(z => {
+    const id = Number(z.id);
+    const name = z.name || `Zapfstelle ${id}`;
+
+    return `
+      <button class="secondary" onclick="openPage('/handy.html?stelle=${id}')">${name}</button>
+    `;
+  }).join("");
+}
+
+function renderFuellstaende(prognose) {
+  if (!prognose || typeof prognose !== "object") {
+    fuellstandListe.innerHTML = `<div class="small-note">Noch keine Füllstände vorhanden.</div>`;
+    return;
+  }
+
+  const eintraege = Object.values(prognose).sort((a, b) => a.stelle - b.stelle);
+
+  if (!eintraege.length) {
+    fuellstandListe.innerHTML = `<div class="small-note">Noch keine Füllstände vorhanden.</div>`;
+    return;
+  }
+
+  fuellstandListe.innerHTML = eintraege.map(eintrag => {
+    const rest = Number(eintrag.restLiter) || 0;
+
+    let statusKlasse = "status-laeuft";
+    let statusText = eintrag.status || "läuft";
+
+    if (statusText === "bald leer") {
+      statusKlasse = "status-bald";
+      statusText = "BALD LEER";
+    } else if (statusText === "fast leer") {
+      statusKlasse = "status-fast";
+      statusText = "FAST LEER";
+    } else if (statusText === "kein aktives Fass") {
+      statusKlasse = "status-kein";
+      statusText = "kein aktives Fass";
+    } else if (statusText === "Rest vorhanden, Anzeige pausiert") {
+      statusKlasse = "status-bald";
+      statusText = "Rest vorhanden, Anzeige pausiert";
+    } else {
+      statusText = "läuft";
+    }
+
+    const leerText = eintrag.minutenBisLeer
+      ? `ca. ${eintrag.minutenBisLeer} Min. / ${eintrag.leerUm} Uhr`
+      : "-";
+
+    return `
+      <div class="fuellstand-entry">
+        <div class="fuellstand-head">
+          <span>${eintrag.name || `Zapfstelle ${eintrag.stelle}`}</span>
+          <strong>${formatLiter(rest)} L Rest</strong>
+        </div>
+
+        <div class="fuellstand-details">
+          <span>Leer voraussichtlich</span>
+          <strong>${leerText}</strong>
+
+          <span>Gewichtung</span>
+          <strong>${Number(eintrag.gewicht || 1).toLocaleString("de-DE", {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1
+          })}</strong>
+
+          <span>Gebucht gesamt</span>
+          <strong>${formatLiter(eintrag.gebuchtLiter)} L</strong>
+
+          <span>Rechnerisch verbraucht</span>
+          <strong>${formatLiter(eintrag.anzeigeLiter)} L</strong>
+
+          <span>30-L-Fässer</span>
+          <strong>${eintrag.faesser30}</strong>
+
+          <span>50-L-Fässer</span>
+          <strong>${eintrag.faesser50}</strong>
+
+          <span>Zapfgeschwindigkeit</span>
+          <strong>${formatLiter(eintrag.speedProZapfstelle)} L/h</strong>
+        </div>
+
+        <div class="fuellstand-status ${statusKlasse}">
+          ${statusText}
+        </div>
+      </div>
+    `;
+  }).join("");
 }
 
 function renderLog(buchungen) {
@@ -564,16 +866,82 @@ function renderLog(buchungen) {
       ? "30 L Fass"
       : buchung.typ === "fass50"
         ? "50 L Fass"
-        : "freie Eingabe";
+        : buchung.typ === "autoAufholen"
+          ? "automatisch aufgeholt"
+          : "freie Eingabe";
 
     return `
       <div class="log-entry">
         <span>${uhrzeit} | Zapfstelle ${buchung.stelle}</span>
-        <strong>+${buchung.liter} L</strong>
+        <strong>+${formatLiter(buchung.liter)} L</strong>
         <span class="log-typ">${typText}</span>
       </div>
     `;
   }).join("");
+}
+
+function updateAnzeige(data) {
+  aktuelleZapfstellenKonfig = Array.isArray(data.zapfstellenKonfig)
+    ? data.zapfstellenKonfig
+    : [];
+
+  if (!data.setupAbgeschlossen) {
+    mainContent.classList.add("hidden");
+    setupCard.classList.remove("hidden");
+    setupAbbrechenButton.classList.add("hidden");
+
+    if (!setupListe.innerHTML.trim()) {
+      setupAnzahl.value = 5;
+      generiereSetup([]);
+    }
+
+    return;
+  }
+
+  if (!setupEditMode) {
+    setupCard.classList.add("hidden");
+  }
+
+  mainContent.classList.remove("hidden");
+
+  const plan = Number(data.plan) || 0;
+  const ist = Number(data.ist) || 0;
+  const sichtbarerIst = Number(data.anzeigeIst) || 0;
+  const autoAufholLiter = Number(data.autoAufholLiter) || 0;
+
+  planWert.textContent = Math.round(plan);
+  istWert.textContent = Math.round(ist);
+  anzeigeIstWert.textContent = formatLiter(sichtbarerIst);
+  autoAufholWert.textContent = formatLiter(autoAufholLiter);
+
+  anzeigeStatus.textContent = data.anzeigeLaeuft ? "LÄUFT" : "PAUSIERT";
+  anzeigeStatus.style.color = data.anzeigeLaeuft ? "#56d46f" : "#ffd400";
+
+  const prozent = plan > 0
+    ? Math.min(100, (ist / plan) * 100)
+    : 0;
+
+  prozentWert.textContent = Math.round(prozent);
+  progressBar.style.width = `${prozent}%`;
+
+  if (data.live) {
+    liveZeitraum.textContent = data.live.text || "-";
+    liveUhrzeit.textContent = data.live.uhrzeit || "-";
+    livePersonen.textContent = data.live.personen || 0;
+    liveSpeed.textContent = Math.round(Number(data.live.literProStunde) || 0);
+  }
+
+  aktuelleSpeed.textContent = Math.round(Number(data.aktuelleAnzeigeGeschwindigkeit) || 0);
+
+  renderQuickLinks(aktuelleZapfstellenKonfig);
+
+  if (data.zapfstellenPrognose) {
+    renderFuellstaende(data.zapfstellenPrognose);
+  }
+
+  if (Array.isArray(data.letzteBuchungen)) {
+    renderLog(data.letzteBuchungen);
+  }
 }
 
 socket.on("update", data => {
@@ -581,18 +949,7 @@ socket.on("update", data => {
 });
 
 socket.on("reset", () => {
-  updateAnzeige({
-    plan: 0,
-    ist: 0,
-    live: {
-      text: "-",
-      uhrzeit: "-",
-      personen: 0,
-      literProStunde: 0,
-      nachlaufMinuten: 0
-    },
-    letzteBuchungen: []
-  });
+  // Der Server sendet direkt danach wieder ein vollständiges Update.
 });
 </script>
 
