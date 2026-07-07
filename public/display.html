@@ -1028,7 +1028,7 @@ function render() {
   requestAnimationFrame(render);
 }
 
-socket.on("update", data => {
+function verarbeiteUpdate(data) {
   if (typeof data.plan === "number") {
     targetPlan = data.plan;
   }
@@ -1072,6 +1072,39 @@ socket.on("update", data => {
   if (newsAktiv) {
     setNewsAnzeige(aktuellerNewsTitel, aktuellerNewsText);
   }
+}
+
+socket.on("update", verarbeiteUpdate);
+
+socket.on("connect", () => {
+  ladeAktuellenStatus();
+});
+
+async function ladeAktuellenStatus() {
+  try {
+    const res = await fetch("/api/status", {
+      cache: "no-store"
+    });
+
+    if (!res.ok) {
+      return;
+    }
+
+    const data = await res.json();
+    verarbeiteUpdate(data);
+  } catch (err) {
+    console.warn("Status konnte nicht geladen werden:", err.message);
+  }
+}
+
+window.addEventListener("pageshow", () => {
+  ladeAktuellenStatus();
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    ladeAktuellenStatus();
+  }
 });
 
 socket.on("reset", () => {
@@ -1085,6 +1118,9 @@ socket.on("reset", () => {
   sollValue.textContent = "0";
   istValue.textContent = "0,0";
 });
+
+ladeAktuellenStatus();
+
 
 render();
 starteAnzeigeSchleife();
