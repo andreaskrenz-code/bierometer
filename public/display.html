@@ -39,56 +39,507 @@ html, body {
 
 .bierometer-leiste {
   position: absolute;
-  left: 7%;
-  right: 7%;
-  bottom: 2.0%;
-
-  height: 7%;
+  left: 5.8%;
+  right: 5.8%;
+  bottom: 0.35%;
+  height: 10.2%;
 
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(8px, 1.2vw, 24px);
 
   color: #ffd400;
   font-weight: bold;
   white-space: nowrap;
+  pointer-events: none;
+}
+
+.anzeige-card {
+  width: min(88%, 1230px);
+  height: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0.25% 2% 0.35%;
+  border-radius: 999px;
+
+  background:
+    linear-gradient(180deg, rgba(255, 230, 80, 0.18), rgba(70, 35, 0, 0.18)),
+    radial-gradient(circle at top, rgba(255, 230, 110, 0.24), rgba(0, 0, 0, 0.66) 58%);
+
+  border: 2px solid rgba(255, 212, 0, 0.78);
+
+  box-shadow:
+    0 0 18px rgba(0, 0, 0, 0.95),
+    0 0 24px rgba(255, 212, 0, 0.24),
+    inset 0 0 16px rgba(255, 212, 0, 0.16),
+    inset 0 -10px 20px rgba(0, 0, 0, 0.48);
+
+  backdrop-filter: blur(2px);
+  overflow: hidden;
+  position: relative;
+}
+
+.anzeige-card::before {
+  content: "";
+  position: absolute;
+  top: -40%;
+  left: -35%;
+  width: 22%;
+  height: 180%;
+
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.00) 28%,
+    rgba(255, 245, 170, 0.18) 42%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 215, 0, 0.20) 58%,
+    rgba(255, 255, 255, 0.00) 72%,
+    transparent 100%
+  );
+
+  transform: skewX(-18deg);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+
+  animation: goldGlanz 11s ease-in-out infinite;
+}
+
+.anzeige-card > * {
+  position: relative;
+  z-index: 2;
+}
+
+@keyframes goldGlanz {
+  0% {
+    left: -35%;
+    opacity: 0;
+  }
+
+  8% {
+    opacity: 0;
+  }
+
+  14% {
+    opacity: 1;
+  }
+
+  26% {
+    left: 115%;
+    opacity: 0.9;
+  }
+
+  34% {
+    left: 125%;
+    opacity: 0;
+  }
+
+  100% {
+    left: 125%;
+    opacity: 0;
+  }
+}
+
+.slide-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.slide-panel {
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  opacity: 0;
+  transform: translateX(0);
+
+  will-change: transform, opacity;
+}
+
+.panel-bierometer.aktiv,
+.panel-wetter.aktiv {
+  opacity: 1;
+  animation: panelReinRaus 12s ease-in-out forwards;
+}
+
+.panel-spruch.aktiv {
+  opacity: 1;
+}
+
+.panel-news.aktiv {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Wichtige Nachricht / Durchsage */
+
+.panel-news.aktiv {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.panel-news .news-hauptzeile {
+  width: min(90vw, 1240px);
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(18px, 2vw, 34px);
+}
+
+.news-main-title {
+  flex: 0 0 auto;
+
+  font-size: clamp(32px, 4vw, 72px);
+  line-height: 1;
+  color: #ffef7a;
+  white-space: nowrap;
+}
+
+.news-box-meldung {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+
+  padding: 0.25em clamp(18px, 2vw, 34px);
+}
+
+.news-titel-versteckt {
+  display: none !important;
+}
+
+.news-marquee {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.news-marquee-text {
+  display: block;
+  width: 100%;
+  min-width: 0;
+
+   font-family: Arial, Helvetica, sans-serif;
+
+  color: #ffd400;
+
+  font-size: var(--news-font-size, 42px);
+  line-height: 1;
+  font-weight: bold;
+  text-transform: none;
+  text-align: center;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 
   text-shadow:
     3px 3px 0 #000,
-    -2px -2px 0 #000,
-    0 0 12px #000,
-    0 0 20px rgba(255, 210, 0, 0.7);
+    -1px -1px 0 #3b2300,
+    0 0 12px rgba(255, 212, 0, 0.75),
+    0 0 24px rgba(255, 212, 0, 0.35);
+}
+
+@keyframes newsDurchlauf {
+  0% {
+    transform: translate(0, -50%);
+  }
+
+  100% {
+    transform: translate(calc(-100% - 100vw), -50%);
+  }
+}
+
+.hauptzeile {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: clamp(8px, 1vw, 20px);
 }
 
 .titel {
-  font-size: clamp(26px, 3.2vw, 62px);
-  letter-spacing: 0.01em;
+  font-size: clamp(24px, 2.45vw, 52px);
+  line-height: 1;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+
+  transform: scaleX(0.92);
+  transform-origin: center;
+
+  color: #ffe45c;
+
+  text-shadow:
+    3px 3px 0 #000,
+    -1px -1px 0 #3b2300,
+    0 0 12px rgba(255, 212, 0, 0.8),
+    0 0 24px rgba(255, 212, 0, 0.35);
 }
 
-.block {
+.werte-zeile {
   display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1vw, 18px);
+}
+
+.wert-box {
+  min-width: clamp(155px, 15vw, 260px);
+
+  display: grid;
+  grid-template-columns: auto 1fr;
   align-items: baseline;
-  gap: 0.35em;
-  font-size: clamp(22px, 2.7vw, 52px);
+  gap: clamp(7px, 0.7vw, 14px);
+
+  padding: 0.22em 0.65em;
+  border-radius: 20px;
+
+  background: rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(255, 212, 0, 0.34);
+
+  box-shadow:
+    inset 0 0 12px rgba(0, 0, 0, 0.65),
+    0 0 10px rgba(255, 212, 0, 0.12);
 }
 
 .label {
-  color: #fff0a0;
-  font-size: 0.78em;
+  color: #fff1a6;
+  font-size: clamp(14px, 1vw, 23px);
+  letter-spacing: 0.12em;
+  text-shadow:
+    2px 2px 0 #000,
+    0 0 8px rgba(0, 0, 0, 0.95);
+}
+
+.wert {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.18em;
 }
 
 .zahl {
   min-width: 4ch;
   text-align: right;
   font-variant-numeric: tabular-nums;
+
+  font-size: clamp(25px, 2.6vw, 54px);
+  line-height: 1;
+
   color: #ffd400;
+
+  text-shadow:
+    3px 3px 0 #000,
+    -1px -1px 0 #3b2300,
+    0 0 12px rgba(255, 212, 0, 0.75),
+    0 0 24px rgba(255, 212, 0, 0.35);
 }
 
 .einheit {
-  color: #fff0a0;
-  font-size: 0.78em;
+  color: #fff1a6;
+  font-size: clamp(15px, 1.25vw, 27px);
+  text-shadow:
+    2px 2px 0 #000,
+    0 0 8px rgba(0, 0, 0, 0.95);
 }
+
+.trenner {
+  width: 2px;
+  height: 58%;
+  border-radius: 999px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(255, 212, 0, 0.85),
+    transparent
+  );
+
+  box-shadow:
+    0 0 10px rgba(255, 212, 0, 0.65),
+    0 0 18px rgba(0, 0, 0, 0.9);
+}
+
+/* Spruch Laufschrift */
+
+.laufband {
+  position: relative;
+  width: 92%;
+  height: 100%;
+  overflow: hidden;
+
+  display: flex;
+  align-items: center;
+}
+
+.lauftext {
+  position: absolute;
+  left: 100%;
+  white-space: nowrap;
+
+  color: #ffe45c;
+  font-size: clamp(24px, 2.7vw, 56px);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: bold;
+
+  text-shadow:
+    3px 3px 0 #000,
+    -1px -1px 0 #3b2300,
+    0 0 12px rgba(255, 212, 0, 0.9),
+    0 0 26px rgba(255, 212, 0, 0.45);
+
+  transform: translateX(0);
+}
+
+/* Wetter im Bierometer-Stil */
+
+.wetter-hauptzeile {
+  width: 100%;
+}
+
+.wetter-box {
+  min-width: clamp(190px, 17vw, 300px);
+}
+
+.wetter-grad {
+  min-width: 4ch;
+  font-size: clamp(25px, 2.6vw, 54px);
+}
+
+.wetter-symbol-wrap {
+  justify-content: center;
+}
+
+.wetter-symbol {
+  min-width: 2ch;
+  text-align: center;
+  font-size: clamp(30px, 3.2vw, 62px);
+  line-height: 1;
+  filter:
+    drop-shadow(3px 3px 0 #000)
+    drop-shadow(0 0 12px rgba(255, 212, 0, 0.55));
+}
+
+/* News / wichtige Nachricht */
+
+.news-box {
+  width: 94%;
+  height: 88%;
+
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: clamp(12px, 1.5vw, 28px);
+
+  padding: 0 2%;
+  border-radius: 999px;
+
+  background:
+    linear-gradient(180deg, rgba(255, 70, 70, 0.22), rgba(80, 0, 0, 0.30)),
+    radial-gradient(circle at top, rgba(255, 230, 110, 0.24), rgba(0, 0, 0, 0.68) 60%);
+
+  border: 2px solid rgba(255, 212, 0, 0.85);
+
+  box-shadow:
+    0 0 18px rgba(0, 0, 0, 0.95),
+    0 0 26px rgba(255, 70, 70, 0.38),
+    inset 0 0 18px rgba(255, 212, 0, 0.18),
+    inset 0 -10px 20px rgba(0, 0, 0, 0.50);
+}
+
+.news-symbol {
+  min-width: clamp(54px, 5vw, 98px);
+  text-align: center;
+
+  font-size: clamp(36px, 4.4vw, 86px);
+  line-height: 1;
+
+  filter:
+    drop-shadow(3px 3px 0 #000)
+    drop-shadow(0 0 14px rgba(255, 212, 0, 0.65));
+}
+
+.news-inhalt {
+  min-width: 0;
+  text-align: left;
+}
+
+.news-titel {
+  color: #ffd400;
+
+  font-size: clamp(14px, 1.15vw, 25px);
+  line-height: 1;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: bold;
+
+  margin-bottom: 0.25em;
+
+  text-shadow:
+    2px 2px 0 #000,
+    0 0 10px rgba(255, 212, 0, 0.75);
+}
+
+.news-text {
+  color: #fff1a6;
+
+  font-size: clamp(22px, 2.25vw, 48px);
+  line-height: 1.05;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-weight: bold;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  text-shadow:
+    3px 3px 0 #000,
+    -1px -1px 0 #3b2300,
+    0 0 14px rgba(255, 212, 0, 0.65),
+    0 0 26px rgba(255, 70, 70, 0.35);
+}
+
+.news-pulse {
+  animation: newsPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes newsPulse {
+  0% {
+    filter: brightness(1);
+  }
+
+  50% {
+    filter: brightness(1.25) drop-shadow(0 0 14px rgba(255, 212, 0, 0.55));
+  }
+
+  100% {
+    filter: brightness(1);
+  }
+}
+
+/* Buchungs-Pulse */
 
 .pulse {
   animation: pulseGold 0.65s ease;
@@ -101,13 +552,73 @@ html, body {
   }
 
   45% {
-    transform: scale(1.05);
-    filter: brightness(1.45) drop-shadow(0 0 18px gold);
+    transform: scale(1.03);
+    filter: brightness(1.35) drop-shadow(0 0 18px gold);
   }
 
   100% {
     transform: scale(1);
     filter: brightness(1);
+  }
+}
+
+@media (max-width: 900px) {
+  .bierometer-leiste {
+    left: 5%;
+    right: 5%;
+    bottom: 0.35%;
+    height: 10.2%;
+  }
+
+  .anzeige-card {
+    width: 94%;
+    padding: 0.25% 1.2% 0.35%;
+  }
+
+  .hauptzeile {
+    gap: 7px;
+  }
+
+  .wert-box {
+    min-width: 132px;
+    padding: 0.2em 0.42em;
+  }
+
+  .titel {
+    font-size: clamp(20px, 3vw, 38px);
+  }
+
+  .zahl {
+    font-size: clamp(21px, 3vw, 40px);
+  }
+
+  .label {
+    font-size: clamp(11px, 1.2vw, 18px);
+  }
+
+  .einheit {
+    font-size: clamp(12px, 1.3vw, 20px);
+  }
+
+  .lauftext {
+    font-size: clamp(18px, 3vw, 38px);
+  }
+
+  .wetter-box {
+    min-width: 120px;
+  }
+
+  .wetter-symbol {
+    font-size: clamp(24px, 3.6vw, 48px);
+  }
+
+  .news-text {
+    font-size: clamp(16px, 2.4vw, 32px);
+  }
+
+  .news-symbol {
+    min-width: 42px;
+    font-size: clamp(28px, 4vw, 54px);
   }
 }
 </style>
@@ -119,18 +630,84 @@ html, body {
   <img class="rahmenbild" src="rahmen-original-transparent.png" alt="Bierometer Rahmen">
 
   <div class="bierometer-leiste" id="bierometerLeiste">
-    <div class="titel">Bierometer</div>
+    <div class="anzeige-card">
+      <div class="slide-track">
 
-    <div class="block">
-      <span class="label">soll</span>
-      <span class="zahl" id="sollValue">0</span>
-      <span class="einheit">Liter</span>
+        <div class="slide-panel panel-bierometer" id="panelBierometer">
+          <div class="hauptzeile">
+            <div class="titel">Bierometer</div>
+
+            <div class="werte-zeile">
+              <div class="wert-box">
+                <div class="label">SOLL</div>
+                <div class="wert">
+                  <span class="zahl" id="sollValue">0</span>
+                  <span class="einheit">L</span>
+                </div>
+              </div>
+
+              <div class="trenner"></div>
+
+              <div class="wert-box ist-box">
+                <div class="label">IST</div>
+                <div class="wert">
+                  <span class="zahl" id="istValue">0,0</span>
+                  <span class="einheit">L</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="slide-panel panel-spruch" id="panelSpruch">
+          <div class="laufband">
+            <div class="lauftext" id="tickerText">
+              🍺 Hol noch eine Runde!
+            </div>
+          </div>
+        </div>
+
+        <div class="slide-panel panel-wetter" id="panelWetter">
+          <div class="hauptzeile wetter-hauptzeile">
+            <div class="titel wetter-titel">Wetter</div>
+
+            <div class="werte-zeile">
+              <div class="wert-box wetter-box">
+                <div class="label">TEMP</div>
+                <div class="wert">
+                  <span class="zahl wetter-grad" id="wetterTemperatur">--°C</span>
+                </div>
+              </div>
+
+              <div class="trenner"></div>
+
+              <div class="wert-box wetter-box">
+                <div class="label">LAGE</div>
+                <div class="wert wetter-symbol-wrap">
+                  <span class="zahl wetter-symbol" id="wetterSymbol">🌤️</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="slide-panel panel-news" id="panelNews">
+  <div class="hauptzeile news-hauptzeile">
+    <div class="titel news-main-title">INFO</div>
+
+    <div class="wert-box news-box-meldung">
+      <span id="newsTitel" class="news-titel-versteckt"></span>
+
+      <div class="news-marquee">
+        <span class="news-marquee-text" id="newsText">
+          ANTRETEN UM 18:00 UHR AUF DEM PLATZ
+        </span>
+      </div>
     </div>
+  </div>
+</div>
 
-    <div class="block">
-      <span class="label">ist</span>
-      <span class="zahl" id="istValue">0,0</span>
-      <span class="einheit">Liter</span>
+      </div>
     </div>
   </div>
 </div>
@@ -146,9 +723,40 @@ let displayIst = 0;
 
 let letzterEchterIst = 0;
 
+let tickerTexte = ["🍺 Hol noch eine Runde!"];
+let letzterSpruchIndex = -1;
+
+let newsAktiv = false;
+let aktuellerNewsTitel = "Wichtige Info";
+let aktuellerNewsText = "";
+
+let laufAnimation = null;
+let schleifeLaeuft = false;
+
 const sollValue = document.getElementById("sollValue");
 const istValue = document.getElementById("istValue");
 const bierometerLeiste = document.getElementById("bierometerLeiste");
+
+const tickerTextElement = document.getElementById("tickerText");
+
+const panelBierometer = document.getElementById("panelBierometer");
+const panelSpruch = document.getElementById("panelSpruch");
+const panelWetter = document.getElementById("panelWetter");
+const panelNews = document.getElementById("panelNews");
+
+const wetterSymbol = document.getElementById("wetterSymbol");
+const wetterTemperatur = document.getElementById("wetterTemperatur");
+
+const newsTitelElement = document.getElementById("newsTitel");
+const newsTextElement = document.getElementById("newsText");
+
+function warten(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+
+
+
 
 function animateValue(current, target, faktor = 0.15) {
   const diff = target - current;
@@ -167,6 +775,249 @@ function formatLiterMitKomma(wert) {
   });
 }
 
+function escapeHTML(wert) {
+  return String(wert)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function setTickerTexte(neueTexte) {
+  if (Array.isArray(neueTexte)) {
+    tickerTexte = neueTexte
+      .map(text => String(text || "").trim())
+      .filter(Boolean);
+  } else {
+    tickerTexte = String(neueTexte || "")
+      .split(/\r?\n/)
+      .map(text => text.trim())
+      .filter(Boolean);
+  }
+
+  if (tickerTexte.length === 0) {
+    tickerTexte = ["🍺 Hol noch eine Runde!"];
+  }
+
+  letzterSpruchIndex = -1;
+}
+
+function holeZufaelligenSpruch() {
+  if (!tickerTexte.length) {
+    return "🍺 Hol noch eine Runde!";
+  }
+
+  if (tickerTexte.length === 1) {
+    return tickerTexte[0];
+  }
+
+  let index = Math.floor(Math.random() * tickerTexte.length);
+
+  while (index === letzterSpruchIndex) {
+    index = Math.floor(Math.random() * tickerTexte.length);
+  }
+
+  letzterSpruchIndex = index;
+
+  return tickerTexte[index];
+}
+
+function setWetter(wetter) {
+  if (!wetter || typeof wetter !== "object") {
+    wetterSymbol.textContent = "🌤️";
+    wetterTemperatur.textContent = "--°C";
+    return;
+  }
+
+  wetterSymbol.textContent = wetter.emoji || "🌤️";
+
+  if (Number.isFinite(Number(wetter.temperatur))) {
+    wetterTemperatur.textContent = `${Math.round(Number(wetter.temperatur))}°C`;
+  } else {
+    wetterTemperatur.textContent = "--°C";
+  }
+}
+
+function passeNewsTextGroesseAn() {
+  const box = document.querySelector(".news-marquee");
+  const text = newsTextElement;
+
+  if (!box || !text) {
+    return;
+  }
+
+  const nachricht = text.textContent.trim();
+
+  let groesse = 50;
+
+  if (nachricht.length > 22) {
+    groesse = 44;
+  }
+
+  if (nachricht.length > 32) {
+    groesse = 38;
+  }
+
+  if (nachricht.length > 44) {
+    groesse = 32;
+  }
+
+  if (nachricht.length > 58) {
+    groesse = 27;
+  }
+
+  if (nachricht.length > 75) {
+    groesse = 23;
+  }
+
+  text.style.setProperty("--news-font-size", `${groesse}px`);
+}
+
+
+
+function setNewsAnzeige(titel, text) {
+  aktuellerNewsTitel = String(titel || "Wichtige Info").trim() || "Wichtige Info";
+  aktuellerNewsText = String(text || "").trim();
+
+  newsTitelElement.innerHTML = escapeHTML(aktuellerNewsTitel);
+  newsTextElement.innerHTML = escapeHTML(aktuellerNewsText);
+
+  passeNewsTextGroesseAn();
+}
+
+function versteckeAllePanels() {
+  panelBierometer.classList.remove("aktiv");
+  panelSpruch.classList.remove("aktiv");
+  panelWetter.classList.remove("aktiv");
+  panelNews.classList.remove("aktiv");
+  panelNews.classList.remove("news-pulse");
+
+  if (laufAnimation) {
+    laufAnimation.cancel();
+    laufAnimation = null;
+  }
+}
+
+async function zeigeBierometerPanel() {
+  versteckeAllePanels();
+
+  void panelBierometer.offsetWidth;
+
+  panelBierometer.classList.add("aktiv");
+
+  await warten(12000);
+}
+
+async function zeigeWetterPanel() {
+  versteckeAllePanels();
+
+  void panelWetter.offsetWidth;
+
+  panelWetter.classList.add("aktiv");
+
+  await warten(12000);
+}
+
+async function zeigeNewsPanel() {
+  versteckeAllePanels();
+
+  setNewsAnzeige(aktuellerNewsTitel, aktuellerNewsText);
+
+  void panelNews.offsetWidth;
+
+  panelNews.classList.add("aktiv");
+  panelNews.classList.add("news-pulse");
+
+  while (newsAktiv) {
+    await warten(500);
+  }
+
+  panelNews.classList.remove("news-pulse");
+}
+
+async function zeigeSpruchPanel() {
+  versteckeAllePanels();
+
+  const spruch = holeZufaelligenSpruch();
+
+  tickerTextElement.innerHTML = escapeHTML(spruch);
+
+  panelSpruch.classList.add("aktiv");
+
+  await warten(80);
+
+  const laufband = tickerTextElement.parentElement;
+  const bandBreite = laufband.offsetWidth;
+  const textBreite = tickerTextElement.offsetWidth;
+
+  tickerTextElement.style.left = `${bandBreite}px`;
+  tickerTextElement.style.transform = "translateX(0)";
+
+  const pixelProSekunde = 145;
+  const strecke = bandBreite + textBreite;
+
+  const dauer = Math.max(
+    6500,
+    Math.min(24000, (strecke / pixelProSekunde) * 1000)
+  );
+
+  laufAnimation = tickerTextElement.animate(
+    [
+      { transform: "translateX(0)" },
+      { transform: `translateX(-${strecke}px)` }
+    ],
+    {
+      duration: dauer,
+      easing: "linear",
+      fill: "forwards"
+    }
+  );
+
+  try {
+    await laufAnimation.finished;
+  } catch (err) {
+    // Animation wurde abgebrochen, z.B. durch Panelwechsel.
+  }
+
+  await warten(500);
+}
+
+async function starteAnzeigeSchleife() {
+  if (schleifeLaeuft) {
+    return;
+  }
+
+  schleifeLaeuft = true;
+
+  while (true) {
+    if (newsAktiv) {
+      await zeigeNewsPanel();
+      continue;
+    }
+
+    await zeigeBierometerPanel();
+
+    if (newsAktiv) {
+      continue;
+    }
+
+    await zeigeSpruchPanel();
+
+    if (newsAktiv) {
+      continue;
+    }
+
+    await zeigeWetterPanel();
+
+    if (newsAktiv) {
+      continue;
+    }
+
+    await zeigeSpruchPanel();
+  }
+}
+
 function render() {
   displayPlan = animateValue(displayPlan, targetPlan, 0.08);
   displayIst = animateValue(displayIst, targetAnzeigeIst, 0.15);
@@ -182,10 +1033,6 @@ socket.on("update", data => {
     targetPlan = data.plan;
   }
 
-  /*
-    Puls nur, wenn wirklich ein neues Fass / neuer echter IST-Wert gebucht wurde.
-    Nicht bei jedem normalen Hochzählen der Anzeige.
-  */
   if (typeof data.ist === "number") {
     if (data.ist > letzterEchterIst) {
       bierometerLeiste.classList.remove("pulse");
@@ -196,12 +1043,34 @@ socket.on("update", data => {
     letzterEchterIst = data.ist;
   }
 
-  /*
-    Zentraler Anzeige-Wert vom Server.
-    Dadurch starten neue Display-Fenster nicht mehr bei 0.
-  */
   if (typeof data.anzeigeIst === "number") {
     targetAnzeigeIst = data.anzeigeIst;
+  }
+
+  if (Array.isArray(data.tickerTexte)) {
+    setTickerTexte(data.tickerTexte);
+  } else if (typeof data.tickerText === "string") {
+    setTickerTexte([data.tickerText]);
+  }
+
+  if (data.wetter) {
+    setWetter(data.wetter);
+  }
+
+  if (typeof data.newsAktiv === "boolean") {
+    newsAktiv = data.newsAktiv;
+  }
+
+  if (typeof data.newsTitel === "string") {
+    aktuellerNewsTitel = data.newsTitel;
+  }
+
+  if (typeof data.newsText === "string") {
+    aktuellerNewsText = data.newsText;
+  }
+
+  if (newsAktiv) {
+    setNewsAnzeige(aktuellerNewsTitel, aktuellerNewsText);
   }
 });
 
@@ -218,6 +1087,10 @@ socket.on("reset", () => {
 });
 
 render();
+starteAnzeigeSchleife();
+
+
+
 </script>
 
 </body>

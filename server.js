@@ -4,6 +4,7 @@ const { Server } = require("socket.io");
 const bodyParser = require("body-parser");
 const fs = require("fs");
 const path = require("path");
+const https = require("https");
 
 const app = express();
 const server = http.createServer(app);
@@ -58,6 +59,27 @@ const SCHUETZENFEST_PLAN = [
 
 const TEST_LITER_PRO_STUNDE_AUSSERHALB_PLAN = 150;
 
+/*
+  Wetter Schützenplatz Paderborn
+  Koordinaten ungefähr Schützenplatz / Schützenhof Paderborn.
+*/
+const WETTER_LAT = 51.73014;
+const WETTER_LON = 8.74928;
+const WETTER_AKTUALISIERUNG_MS = 5 * 60 * 1000;
+
+let wetter = {
+  ok: false,
+  text: "Wetter wird geladen...",
+  emoji: "🌤️",
+  temperatur: null,
+  wind: null,
+  regen: null,
+  code: null,
+  aktualisiertUm: null
+};
+
+
+
 let setupAbgeschlossen = false;
 let zapfstellenKonfig = [];
 
@@ -69,8 +91,52 @@ let turboBis = 0;
 let autoAufholLiter = 0;
 let startTime = Date.now();
 
+let tickerText = "🍺 Hol noch eine Runde!";
+
+let tickerTexte = [
+  "🍺 Hol noch eine Runde!",
+  "Der Durst zählt mit!",
+  "Prost Königsträsser!",
+  "Noch ein Bier fürs Bierometer!",
+  "Heute zählt jeder Liter!",
+  "Ein Bier geht noch!",
+  "Frisch gezapft schmeckt am besten!",
+  "Das Bierometer braucht Futter!",
+  "Königsträsser, gebt Gas!",
+  "Runde für die Theke!"
+];
+
+let newsAktiv = false;
+let newsTitel = "Wichtige Info";
+let newsText = "";
+
 let zapfstellen = {};
 let buchungen = [];
+
+function bereinigeTickerTexte(wert) {
+  let zeilen = [];
+
+  if (Array.isArray(wert)) {
+    zeilen = wert;
+  } else {
+    zeilen = String(wert || "").split(/\r?\n/);
+  }
+
+  zeilen = zeilen
+    .map(text => String(text || "").trim())
+    .filter(Boolean)
+    .map(text => text.slice(0, 140));
+
+  if (zeilen.length > 80) {
+    zeilen = zeilen.slice(0, 80);
+  }
+
+  if (zeilen.length === 0) {
+    zeilen = ["🍺 Hol noch eine Runde!"];
+  }
+
+  return zeilen;
+}
 
 function begrenze(wert, min, max) {
   return Math.min(max, Math.max(min, wert));
@@ -350,6 +416,25 @@ function ladeDaten() {
     turboBis = Number(daten.turboBis) || 0;
     autoAufholLiter = Number(daten.autoAufholLiter) || 0;
     startTime = Number(daten.startTime) || Date.now();
+    if (Array.isArray(daten.tickerTexte)) {
+  tickerTexte = bereinigeTickerTexte(daten.tickerTexte);
+  tickerText = tickerTexte[0] || "🍺 Hol noch eine Runde!";
+} else if (typeof daten.tickerText === "string") {
+  tickerText = daten.tickerText;
+  tickerTexte = bereinigeTickerTexte(daten.tickerText);
+}
+
+if (typeof daten.newsAktiv === "boolean") {
+  newsAktiv = daten.newsAktiv;
+}
+
+if (typeof daten.newsTitel === "string") {
+  newsTitel = daten.newsTitel;
+}
+
+if (typeof daten.newsText === "string") {
+  newsText = daten.newsText;
+}
 
     if (anzeigeIst > ist) {
       anzeigeIst = ist;
@@ -393,6 +478,12 @@ function speichereDaten() {
       turboBis,
       autoAufholLiter,
       startTime,
+      wetter,
+      tickerText,
+      tickerTexte,
+      newsAktiv,
+      newsTitel,
+      newsText,
 
       zapfstellen,
       buchungen
@@ -659,6 +750,161 @@ function getZapfstellenPrognose() {
   return prognose;
 }
 
+function holeJSON(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, response => {
+      let data = "";
+
+      response.on("data", chunk => {
+        data += chunk;
+      });
+
+      response.on("end", () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }).on("error", reject);
+  });
+}
+
+function getWetterEmoji(code, isDay) {
+  const tag = Number(isDay) === 1;
+
+  if (code === 0) {
+    return tag ? "☀️" : "🌙";
+  }
+
+  if ([1, 2].includes(code)) {
+    return tag ? "🌤️" : "☁️";
+  }
+
+  if (code === 3) {
+    return "☁️";
+  }
+
+  if ([45, 48].includes(code)) {
+    return "🌫️";
+  }
+
+  if ([51, 53, 55, 56, 57].includes(code)) {
+    return "🌦️";
+  }
+
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) {
+    return "🌧️";
+  }
+
+  if ([71, 73, 75, 77, 85, 86].includes(code)) {
+    return "❄️";
+  }
+
+  if ([95, 96, 99].includes(code)) {
+    return "⛈️";
+  }
+
+  return "🌤️";
+}
+
+function getWetterBeschreibung(code) {
+  if (code === 0) return "klar";
+  if ([1, 2].includes(code)) return "leicht bewölkt";
+  if (code === 3) return "bewölkt";
+  if ([45, 48].includes(code)) return "neblig";
+  if ([51, 53, 55, 56, 57].includes(code)) return "Nieselregen";
+  if ([61, 63, 65].includes(code)) return "Regen";
+  if ([66, 67].includes(code)) return "gefrierender Regen";
+  if ([71, 73, 75, 77].includes(code)) return "Schnee";
+  if ([80, 81, 82].includes(code)) return "Regenschauer";
+  if ([85, 86].includes(code)) return "Schneeschauer";
+  if ([95, 96, 99].includes(code)) return "Gewitter";
+
+  return "Wetter";
+}
+
+function baueWetterText({ temperatur, wind, regen, code, isDay }) {
+  const emoji = getWetterEmoji(code, isDay);
+  const beschreibung = getWetterBeschreibung(code);
+
+  const tempText = Number.isFinite(temperatur)
+    ? `${Math.round(temperatur)}°C`
+    : "--°C";
+
+  const windText = Number.isFinite(wind)
+    ? `Wind ${Math.round(wind)} km/h`
+    : "Wind -- km/h";
+
+  const regenText = Number.isFinite(regen)
+    ? `Regen ${Number(regen).toLocaleString("de-DE", {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1
+      })} mm`
+    : "Regen -- mm";
+
+  if (Number(regen) > 0.2 || [61, 63, 65, 80, 81, 82, 95, 96, 99].includes(code)) {
+    return `${emoji} ${tempText}   ${beschreibung} am Schützenplatz   ${windText}   ${regenText}   Schnell noch ein Bier sichern! 🍺`;
+  }
+
+  if (Number(temperatur) >= 22) {
+    return `${emoji} ${tempText}   Bestes Bierwetter am Schützenplatz   ${windText}   ${regenText}   Hol noch eine Runde! 🍺`;
+  }
+
+  return `${emoji} ${tempText}   Wetter Schützenplatz Paderborn: ${beschreibung}   ${windText}   ${regenText}`;
+}
+
+async function aktualisiereWetter() {
+  try {
+    const url =
+      `https://api.open-meteo.com/v1/forecast` +
+      `?latitude=${WETTER_LAT}` +
+      `&longitude=${WETTER_LON}` +
+      `&current=temperature_2m,precipitation,weather_code,wind_speed_10m,is_day` +
+      `&timezone=Europe%2FBerlin`;
+
+    const daten = await holeJSON(url);
+    const current = daten.current || {};
+
+    const temperatur = Number(current.temperature_2m);
+    const wind = Number(current.wind_speed_10m);
+    const regen = Number(current.precipitation);
+    const code = Number(current.weather_code);
+    const isDay = Number(current.is_day);
+
+    wetter = {
+      ok: true,
+      text: baueWetterText({
+        temperatur,
+        wind,
+        regen,
+        code,
+        isDay
+      }),
+      emoji: getWetterEmoji(code, isDay),
+      beschreibung: getWetterBeschreibung(code),
+      temperatur,
+      wind,
+      regen,
+      code,
+      isDay,
+      aktualisiertUm: new Date().toISOString()
+    };
+
+    sendeUpdate();
+  } catch (err) {
+    console.error("Wetter konnte nicht geladen werden:", err.message);
+
+    wetter = {
+      ...wetter,
+      ok: false,
+      text: "Wetterdaten gerade nicht verfügbar",
+      aktualisiertUm: new Date().toISOString()
+    };
+  }
+}
+
+
 function getStatus() {
   return {
     setupAbgeschlossen,
@@ -668,14 +914,26 @@ function getStatus() {
     ist,
     anzeigeIst,
     anzeigeLaeuft,
+
     turboAktiv: Date.now() < turboBis,
     autoAufholLiter,
+
+    tickerText,
+    tickerTexte,
+
+    newsAktiv,
+    newsTitel,
+    newsText,
+
+    wetter,
 
     serverTime: Date.now(),
     averageLiterPerMs: getAverageLiterPerMs(),
 
     live: getLiveParameter(),
     aktuelleAnzeigeGeschwindigkeit: berechneAnzeigeGeschwindigkeit(),
+
+    wetter,
 
     zapfstellen,
     zapfstellenPrognose: getZapfstellenPrognose(),
@@ -963,6 +1221,58 @@ app.post("/api/plan", (req, res) => {
   });
 });
 
+app.post("/api/ticker", (req, res) => {
+  const text = String(req.body.text || "").trim();
+
+  const neueTickerTexte = bereinigeTickerTexte(text);
+
+  tickerTexte = neueTickerTexte;
+  tickerText = tickerTexte[0] || "🍺 Hol noch eine Runde!";
+
+  speichereDaten();
+  sendeUpdate();
+
+  res.json({
+    ok: true,
+    ...getStatus()
+  });
+});
+
+app.post("/api/news", (req, res) => {
+  const aktiv = Boolean(req.body.aktiv);
+
+  let titel = String(req.body.titel || "Wichtige Info").trim();
+  let text = String(req.body.text || "").trim();
+
+  if (!titel) {
+    titel = "Wichtige Info";
+  }
+
+  if (titel.length > 40) {
+    return res.status(400).send("News-Titel ist zu lang. Maximal 40 Zeichen.");
+  }
+
+  if (text.length > 220) {
+    return res.status(400).send("News-Text ist zu lang. Maximal 220 Zeichen.");
+  }
+
+  if (aktiv && !text) {
+    return res.status(400).send("Bitte einen News-Text eingeben.");
+  }
+
+  newsAktiv = aktiv;
+  newsTitel = titel;
+  newsText = text;
+
+  speichereDaten();
+  sendeUpdate();
+
+  res.json({
+    ok: true,
+    ...getStatus()
+  });
+});
+
 app.post("/api/start", (req, res) => {
   anzeigeLaeuft = true;
 
@@ -1180,6 +1490,12 @@ setInterval(() => {
 setInterval(() => {
   speichereDaten();
 }, 10000);
+
+aktualisiereWetter();
+
+setInterval(() => {
+  aktualisiereWetter();
+}, WETTER_AKTUALISIERUNG_MS);
 
 const PORT = process.env.PORT || 3000;
 
