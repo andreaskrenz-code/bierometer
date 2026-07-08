@@ -17,7 +17,9 @@ app.get("/", (req, res) => {
   res.redirect("/admin.html");
 });
 
-const DATA_FILE = path.join(__dirname, "bierometer-data.json");
+const DATA_DATEI = process.env.DATA_FILE
+  ? path.resolve(process.env.DATA_FILE)
+  : path.join(__dirname, "bierometer-data.json");
 
 const FASSGROESSEN = [30, 50];
 
@@ -542,6 +544,12 @@ newsAutoAusUm,
       buchungen
     };
 
+    const datenOrdner = path.dirname(DATA_DATEI);
+
+if (!fs.existsSync(datenOrdner)) {
+  fs.mkdirSync(datenOrdner, { recursive: true });
+}
+    
     fs.writeFileSync(DATA_FILE, JSON.stringify(daten, null, 2));
   } catch (err) {
     console.error("Daten konnten nicht gespeichert werden:", err.message);
