@@ -29,20 +29,15 @@ html, body {
 }
 
 .rahmenbild {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  pointer-events: none;
+  display: none;
 }
 
 .bierometer-leiste {
   position: absolute;
   left: 5.8%;
   right: 5.8%;
-  bottom: 0.35%;
-  height: 10.2%;
+  bottom: 1.35%;
+  height: 9%;
 
   display: flex;
   align-items: center;
@@ -223,21 +218,26 @@ html, body {
 }
 
 .news-marquee {
+  position: relative;
   width: 100%;
   min-width: 0;
+  height: clamp(34px, 3.2vw, 62px);
   overflow: hidden;
 
   display: flex;
   align-items: center;
-  justify-content: center;
 }
 
 .news-marquee-text {
-  display: block;
-  width: 100%;
-  min-width: 0;
+  position: absolute;
+  left: 0;
+  top: 50%;
 
-   font-family: Arial, Helvetica, sans-serif;
+  display: inline-block;
+  min-width: max-content;
+  white-space: nowrap;
+
+  font-family: Georgia, "Times New Roman", serif;
 
   color: #ffd400;
 
@@ -245,28 +245,18 @@ html, body {
   line-height: 1;
   font-weight: bold;
   text-transform: none;
-  text-align: center;
-
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  text-align: left;
 
   text-shadow:
     3px 3px 0 #000,
     -1px -1px 0 #3b2300,
     0 0 12px rgba(255, 212, 0, 0.75),
     0 0 24px rgba(255, 212, 0, 0.35);
+
+  transform: translate(0, -50%);
 }
 
-@keyframes newsDurchlauf {
-  0% {
-    transform: translate(0, -50%);
-  }
 
-  100% {
-    transform: translate(calc(-100% - 100vw), -50%);
-  }
-}
 
 .hauptzeile {
   width: 100%;
@@ -621,13 +611,86 @@ html, body {
     font-size: clamp(28px, 4vw, 54px);
   }
 }
+
+
+
+/* FINALER NEWS-TICKER */
+
+.panel-news .news-hauptzeile {
+  height: 100%;
+  width: 100%;
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(18px, 2vw, 34px);
+}
+
+.wert-box.news-box-meldung {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  height: clamp(42px, 6.2vh, 82px);
+
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-start;
+
+  padding: 0 clamp(18px, 2vw, 34px);
+  overflow: hidden;
+}
+
+.news-titel-versteckt {
+  display: none !important;
+}
+
+.news-laufband {
+  position: relative !important;
+  width: 100% !important;
+  min-width: 0;
+  height: clamp(34px, 4.8vh, 64px) !important;
+  overflow: hidden !important;
+
+  display: block;
+}
+
+.news-lauftext {
+  position: absolute !important;
+  left: 100%;
+  top: 50%;
+
+  display: inline-block;
+  min-width: max-content;
+  width: max-content;
+  white-space: nowrap;
+
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: var(--news-font-size, 42px) !important;
+  line-height: 1;
+  font-weight: bold;
+  text-transform: none;
+  letter-spacing: 0.01em;
+
+  color: #ffd400;
+
+  text-shadow:
+    3px 3px 0 #000,
+    -1px -1px 0 #3b2300,
+    0 0 12px rgba(255, 212, 0, 0.75),
+    0 0 24px rgba(255, 212, 0, 0.35);
+
+  transform: translate(0, -50%);
+  opacity: 1;
+}
+
 </style>
 </head>
 
 <body>
 
 <div class="overlay">
-  <img class="rahmenbild" src="rahmen-original-transparent.png" alt="Bierometer Rahmen">
+  
 
   <div class="bierometer-leiste" id="bierometerLeiste">
     <div class="anzeige-card">
@@ -698,10 +761,10 @@ html, body {
     <div class="wert-box news-box-meldung">
       <span id="newsTitel" class="news-titel-versteckt"></span>
 
-      <div class="news-marquee">
-        <span class="news-marquee-text" id="newsText">
-          ANTRETEN UM 18:00 UHR AUF DEM PLATZ
-        </span>
+      <div class="laufband news-laufband">
+        <div class="lauftext news-lauftext" id="newsText">
+          Antreten um 18:00 Uhr auf dem Platz
+        </div>
       </div>
     </div>
   </div>
@@ -731,6 +794,7 @@ let aktuellerNewsTitel = "Wichtige Info";
 let aktuellerNewsText = "";
 
 let laufAnimation = null;
+let newsTickerAnimation = null;
 let schleifeLaeuft = false;
 
 const sollValue = document.getElementById("sollValue");
@@ -840,7 +904,7 @@ function setWetter(wetter) {
 }
 
 function passeNewsTextGroesseAn() {
-  const box = document.querySelector(".news-marquee");
+  const box = document.querySelector(".news-laufband");
   const text = newsTextElement;
 
   if (!box || !text) {
@@ -897,6 +961,11 @@ function versteckeAllePanels() {
     laufAnimation.cancel();
     laufAnimation = null;
   }
+
+  if (newsTickerAnimation) {
+  newsTickerAnimation.cancel();
+  newsTickerAnimation = null;
+}
 }
 
 async function zeigeBierometerPanel() {
@@ -929,11 +998,64 @@ async function zeigeNewsPanel() {
   panelNews.classList.add("aktiv");
   panelNews.classList.add("news-pulse");
 
+  await starteNewsTicker();
+
   while (newsAktiv) {
     await warten(500);
   }
 
+  if (newsTickerAnimation) {
+    newsTickerAnimation.cancel();
+    newsTickerAnimation = null;
+  }
+
   panelNews.classList.remove("news-pulse");
+}
+
+async function starteNewsTicker() {
+  await warten(180);
+
+  const laufband = document.querySelector(".news-laufband");
+
+  if (!laufband || !newsTextElement) {
+    return;
+  }
+
+  if (newsTickerAnimation) {
+    newsTickerAnimation.cancel();
+    newsTickerAnimation = null;
+  }
+
+  const bandBreite = laufband.clientWidth;
+  const textBreite = newsTextElement.scrollWidth;
+
+  if (!bandBreite || !textBreite) {
+    return;
+  }
+
+  newsTextElement.style.opacity = "1";
+  newsTextElement.style.left = `${bandBreite}px`;
+  newsTextElement.style.transform = "translate(0, -50%)";
+
+  const pixelProSekunde = 120;
+  const strecke = bandBreite + textBreite;
+
+  const dauer = Math.max(
+    7000,
+    Math.min(24000, (strecke / pixelProSekunde) * 1000)
+  );
+
+  newsTickerAnimation = newsTextElement.animate(
+    [
+      { transform: "translate(0, -50%)" },
+      { transform: `translate(-${strecke}px, -50%)` }
+    ],
+    {
+      duration: dauer,
+      easing: "linear",
+      iterations: Infinity
+    }
+  );
 }
 
 async function zeigeSpruchPanel() {
