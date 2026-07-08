@@ -74,34 +74,56 @@ h1 {
 .card {
   border-radius: 22px;
   padding: 18px;
+  overflow: hidden;
+
   background:
     linear-gradient(180deg, rgba(255, 230, 90, 0.10), rgba(0, 0, 0, 0.42)),
     radial-gradient(circle at top, rgba(255, 212, 0, 0.16), rgba(0, 0, 0, 0.74) 68%);
-  border: 2px solid rgba(255, 212, 0, 0.45);
+
+  border: 8px solid var(--zapf-farbe, #ffd400);
+
   box-shadow:
-    0 0 18px rgba(0, 0, 0, 0.75),
+    0 0 22px rgba(0, 0, 0, 0.75),
+    0 0 20px var(--zapf-schein, rgba(255, 212, 0, 0.25)),
     inset 0 0 14px rgba(255, 212, 0, 0.10);
 }
 
+.card.warnung,
+.card.kritisch,
+.card.leer {
+  border-color: var(--zapf-farbe, #ffd400);
+}
+
 .card.warnung {
-  border-color: rgba(255, 160, 0, 0.95);
   box-shadow:
     0 0 20px rgba(255, 160, 0, 0.25),
+    0 0 20px var(--zapf-schein, rgba(255, 212, 0, 0.25)),
     inset 0 0 14px rgba(255, 160, 0, 0.12);
 }
 
-.card.kritisch {
-  border-color: rgba(255, 55, 55, 0.95);
+.card.kritisch,
+.card.leer {
   box-shadow:
     0 0 24px rgba(255, 55, 55, 0.34),
+    0 0 20px var(--zapf-schein, rgba(255, 212, 0, 0.25)),
     inset 0 0 16px rgba(255, 55, 55, 0.18);
 }
 
-.card.leer {
-  border-color: rgba(255, 55, 55, 1);
-  background:
-    linear-gradient(180deg, rgba(255, 30, 30, 0.18), rgba(0, 0, 0, 0.55)),
-    radial-gradient(circle at top, rgba(255, 212, 0, 0.10), rgba(0, 0, 0, 0.8) 70%);
+.farbkopf {
+  width: calc(100% + 36px);
+  height: 26px;
+  margin: -18px -18px 14px;
+  background: var(--zapf-farbe, #ffd400);
+}
+
+.farbname {
+  display: inline-block;
+  margin-bottom: 6px;
+  color: var(--zapf-farbe, #ffd400);
+  font-size: 15px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .card-head {
@@ -133,7 +155,7 @@ h1 {
   border-radius: 999px;
   padding: 7px 10px;
   background: rgba(0, 0, 0, 0.38);
-  border: 1px solid rgba(255, 212, 0, 0.35);
+  border: 1px solid var(--zapf-farbe, #ffd400);
   color: #fff3b0;
   font-weight: 800;
   font-size: 13px;
@@ -179,7 +201,7 @@ h1 {
   width: 0%;
   border-radius: 999px;
   background:
-    linear-gradient(90deg, #ff4b4b, #ffb000 45%, #ffd400 75%, #fff19a);
+    linear-gradient(90deg, rgba(255,255,255,0.18), var(--zapf-farbe, #ffd400));
   transition: width 0.4s ease;
 }
 
@@ -219,21 +241,7 @@ h1 {
   color: #fff3b0;
   font-size: 15px;
   line-height: 1.35;
-}
-
-.hinweis.ok {
-  border: 1px solid rgba(85, 210, 100, 0.45);
-}
-
-.hinweis.warnung {
-  border: 1px solid rgba(255, 150, 0, 0.75);
-  color: #ffd89a;
-}
-
-.hinweis.kritisch,
-.hinweis.leer {
-  border: 1px solid rgba(255, 70, 70, 0.9);
-  color: #ffb8b8;
+  border: 1px solid var(--zapf-farbe, #ffd400);
 }
 
 .empty {
@@ -288,6 +296,13 @@ h1 {
   .card {
     border-radius: 18px;
     padding: 14px;
+    border-width: 7px;
+  }
+
+  .farbkopf {
+    width: calc(100% + 28px);
+    height: 24px;
+    margin: -14px -14px 12px;
   }
 
   .card-head {
@@ -365,6 +380,13 @@ h1 {
 
   .card {
     padding: 12px;
+    border-width: 6px;
+  }
+
+  .farbkopf {
+    width: calc(100% + 24px);
+    height: 22px;
+    margin: -12px -12px 10px;
   }
 
   .card-head {
@@ -423,6 +445,38 @@ h1 {
 const grid = document.getElementById("grid");
 const empty = document.getElementById("empty");
 const aktualisiert = document.getElementById("aktualisiert");
+
+const zapfstellenFarben = [
+  { name: "Rot",     hex: "8b0000" },
+  { name: "Blau",    hex: "005f99" },
+  { name: "Grün",    hex: "0b6b2b" },
+  { name: "Orange",  hex: "b35400" },
+  { name: "Violett", hex: "4b2e83" },
+  { name: "Pink",    hex: "8a0066" },
+  { name: "Petrol",  hex: "006b66" },
+  { name: "Gold",    hex: "6b5b00" }
+];
+
+function farbeFuerZapfstelle(status, stelle) {
+  const konfig = Array.isArray(status.zapfstellenKonfig)
+    ? status.zapfstellenKonfig
+    : [];
+
+  const aktiveZapfstellen = konfig.filter(z => z && z.aktiv !== false);
+
+  const index = aktiveZapfstellen.findIndex(z => {
+    const nummer = Number(z.stelle || z.id);
+    return nummer === Number(stelle);
+  });
+
+  if (index >= 0) {
+    return zapfstellenFarben[index % zapfstellenFarben.length];
+  }
+
+  const fallbackIndex = Math.max(0, Number(stelle) - 1);
+
+  return zapfstellenFarben[fallbackIndex % zapfstellenFarben.length];
+}
 
 function zahl(wert) {
   const n = Number(wert);
@@ -519,19 +573,33 @@ function formatZeitpunktAusStunden(stunden) {
   });
 }
 
-function statusKlasse(prozent, restLiter) {
+function statusKlasse(prozent, restLiter, statusText) {
   const p = zahl(prozent);
   const r = zahl(restLiter);
+  const s = String(statusText || "").toLowerCase();
 
-  if ((r !== null && r <= 1) || (p !== null && p <= 2)) {
+  if (
+    s.includes("kein aktives fass") ||
+    s.includes("leer") ||
+    (r !== null && r <= 1) ||
+    (p !== null && p <= 2)
+  ) {
     return "leer";
   }
 
-  if ((r !== null && r <= 6) || (p !== null && p <= 15)) {
+  if (
+    s.includes("fast leer") ||
+    (r !== null && r <= 6) ||
+    (p !== null && p <= 15)
+  ) {
     return "kritisch";
   }
 
-  if ((r !== null && r <= 12) || (p !== null && p <= 30)) {
+  if (
+    s.includes("bald leer") ||
+    (r !== null && r <= 12) ||
+    (p !== null && p <= 30)
+  ) {
     return "warnung";
   }
 
@@ -569,11 +637,22 @@ function konfigMap(status) {
   return map;
 }
 
-function baueAusPrognose(status) {
-  const liste = Array.isArray(status.zapfstellenPrognose)
-    ? status.zapfstellenPrognose
-    : [];
+function prognoseAlsListe(status) {
+  const prognose = status.zapfstellenPrognose;
 
+  if (Array.isArray(prognose)) {
+    return prognose;
+  }
+
+  if (prognose && typeof prognose === "object") {
+    return Object.values(prognose);
+  }
+
+  return [];
+}
+
+function baueAusPrognose(status) {
+  const liste = prognoseAlsListe(status);
   const map = konfigMap(status);
 
   return liste.map((p, index) => {
@@ -638,6 +717,7 @@ function baueAusPrognose(status) {
       verbraucht,
       prozent,
       literProStunde,
+      status: p.status || "",
       prognoseText: p.prognoseText || p.wechselText || p.hinweis || "",
       quelle: "prognose"
     };
@@ -684,6 +764,7 @@ function baueAusZapfstellen(status) {
       verbraucht,
       prozent,
       literProStunde: null,
+      status: "",
       prognoseText: "",
       quelle: "zapfstellen"
     };
@@ -749,7 +830,8 @@ function render(status) {
   empty.style.display = "none";
 
   liste.forEach(item => {
-    const klasse = statusKlasse(item.prozent, item.restLiter);
+    const farbe = farbeFuerZapfstelle(status, item.stelle);
+    const klasse = statusKlasse(item.prozent, item.restLiter, item.status);
     const prozent = Math.max(0, Math.min(100, zahl(item.prozent) ?? 0));
 
     const wechselIn = formatDauerAusStunden(item.stundenBisLeer);
@@ -765,14 +847,20 @@ function render(status) {
 
     const card = document.createElement("section");
     card.className = `card ${klasse}`;
+    card.style.setProperty("--zapf-farbe", `#${farbe.hex}`);
+    card.style.setProperty("--zapf-schein", `#${farbe.hex}55`);
 
     card.innerHTML = `
+      <div class="farbkopf"></div>
+
       <div class="card-head">
         <div>
+          <div class="farbname">${escapeHTML(farbe.name)}</div>
           <div class="name">${escapeHTML(item.name)}</div>
           <div class="stelle">Zapfstelle ${escapeHTML(item.stelle)}</div>
         </div>
-        <div class="badge">${escapeHTML(statusText(klasse))}</div>
+
+        <div class="badge">${escapeHTML(farbe.name)} · ${escapeHTML(statusText(klasse))}</div>
       </div>
 
       <div class="rest">
@@ -806,7 +894,7 @@ function render(status) {
         </div>
       </div>
 
-      <div class="hinweis ${klasse}">
+      <div class="hinweis">
         ${escapeHTML(hinweis)}
       </div>
     `;
