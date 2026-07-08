@@ -161,7 +161,8 @@ html, body {
 }
 
 .panel-bierometer.aktiv,
-.panel-wetter.aktiv {
+.panel-wetter.aktiv,
+.panel-mitglieder.aktiv {
   opacity: 1;
   animation: panelReinRaus 12s ease-in-out forwards;
 }
@@ -684,6 +685,37 @@ html, body {
   opacity: 1;
 }
 
+.panel-mitglieder .hauptzeile {
+  gap: clamp(8px, 1vw, 18px);
+}
+
+.panel-mitglieder .titel {
+  color: #ffd400;
+  white-space: nowrap;
+  font-size: clamp(18px, 1.9vw, 38px);
+  transform: scaleX(0.88);
+  transform-origin: center;
+}
+
+.panel-mitglieder .wert-box {
+  min-width: clamp(120px, 12vw, 210px);
+}
+
+.panel-mitglieder .zahl {
+  min-width: 3ch;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 900px) {
+  .panel-mitglieder .titel {
+    font-size: clamp(16px, 2.4vw, 28px);
+  }
+
+  .panel-mitglieder .wert-box {
+    min-width: 112px;
+  }
+}
+
 </style>
 </head>
 
@@ -754,6 +786,30 @@ html, body {
           </div>
         </div>
 
+                <div class="slide-panel panel-mitglieder" id="panelMitglieder">
+          <div class="hauptzeile">
+            <div class="titel">Königsträßer Mitglieder</div>
+
+            <div class="werte-zeile">
+              <div class="wert-box">
+                <div class="label">SOLL</div>
+                <div class="wert">
+                  <span class="zahl" id="mitgliederSollValue">0</span>
+                </div>
+              </div>
+
+              <div class="trenner"></div>
+
+              <div class="wert-box ist-box">
+                <div class="label">IST</div>
+                <div class="wert">
+                  <span class="zahl" id="mitgliederIstValue">0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="slide-panel panel-news" id="panelNews">
   <div class="hauptzeile news-hauptzeile">
     <div class="titel news-main-title">INFO</div>
@@ -777,6 +833,13 @@ html, body {
 
 <script>
 const socket = io();
+
+const panelMitglieder = document.getElementById("panelMitglieder");
+const mitgliederSollValue = document.getElementById("mitgliederSollValue");
+const mitgliederIstValue = document.getElementById("mitgliederIstValue");
+
+let mitgliederSoll = 0;
+let mitgliederIst = 0;
 
 let targetPlan = 0;
 let targetAnzeigeIst = 0;
@@ -957,15 +1020,19 @@ function versteckeAllePanels() {
   panelNews.classList.remove("aktiv");
   panelNews.classList.remove("news-pulse");
 
+  if (typeof panelMitglieder !== "undefined" && panelMitglieder) {
+    panelMitglieder.classList.remove("aktiv");
+  }
+
   if (laufAnimation) {
     laufAnimation.cancel();
     laufAnimation = null;
   }
 
   if (newsTickerAnimation) {
-  newsTickerAnimation.cancel();
-  newsTickerAnimation = null;
-}
+    newsTickerAnimation.cancel();
+    newsTickerAnimation = null;
+  }
 }
 
 async function zeigeBierometerPanel() {
@@ -978,6 +1045,48 @@ async function zeigeBierometerPanel() {
   await warten(12000);
 }
 
+
+function animiereMitgliederZahl(element, ziel, dauer = 900) {
+  return new Promise(resolve => {
+    if (!element) {
+      resolve();
+      return;
+    }
+
+    const startZeit = performance.now();
+    const zielZahl = Math.max(0, Math.round(Number(ziel) || 0));
+
+    function frame(zeit) {
+      const fortschritt = Math.min(1, (zeit - startZeit) / dauer);
+      const wert = Math.round(zielZahl * fortschritt);
+
+      element.textContent = wert;
+
+      if (fortschritt < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        element.textContent = zielZahl;
+        resolve();
+      }
+    }
+
+    requestAnimationFrame(frame);
+  });
+}
+
+async function starteMitgliederZaehler() {
+  if (!mitgliederSollValue || !mitgliederIstValue) {
+    return;
+  }
+
+  mitgliederSollValue.textContent = "0";
+  mitgliederIstValue.textContent = "0";
+
+  await animiereMitgliederZahl(mitgliederSollValue, mitgliederSoll, 900);
+  await warten(250);
+  await animiereMitgliederZahl(mitgliederIstValue, mitgliederIst, 900);
+}
+
 async function zeigeWetterPanel() {
   versteckeAllePanels();
 
@@ -986,6 +1095,22 @@ async function zeigeWetterPanel() {
   panelWetter.classList.add("aktiv");
 
   await warten(12000);
+}
+
+async function zeigeMitgliederPanel() {
+  if (!panelMitglieder) {
+    return;
+  }
+
+  versteckeAllePanels();
+
+  void panelMitglieder.offsetWidth;
+
+  panelMitglieder.classList.add("aktiv");
+
+  await starteMitgliederZaehler();
+
+  await warten(10000);
 }
 
 async function zeigeNewsPanel() {
@@ -1137,6 +1262,18 @@ async function starteAnzeigeSchleife() {
     }
 
     await zeigeSpruchPanel();
+
+    if (newsAktiv) {
+      continue;
+    }
+
+    await zeigeMitgliederPanel();
+
+    if (newsAktiv) {
+      continue;
+    }
+
+    await zeigeSpruchPanel();
   }
 }
 
@@ -1153,6 +1290,17 @@ function render() {
 function verarbeiteUpdate(data) {
   if (typeof data.plan === "number") {
     targetPlan = data.plan;
+  }
+
+  mitgliederSoll = Number(data.mitgliederSoll) || 0;
+  mitgliederIst = Number(data.mitgliederIst) || 0;
+
+  if (mitgliederSollValue) {
+    mitgliederSollValue.textContent = mitgliederSoll;
+  }
+
+  if (mitgliederIstValue) {
+    mitgliederIstValue.textContent = mitgliederIst;
   }
 
   if (typeof data.ist === "number") {

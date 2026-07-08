@@ -619,6 +619,43 @@ button.log-storno {
     </div>
 
     <div class="card">
+  <div class="section-title">Königsträßer Mitglieder</div>
+
+  <div class="input-row">
+    <input
+      id="mitgliederSollInput"
+      type="number"
+      min="0"
+      max="9999"
+      step="1"
+      placeholder="Soll-Mitglieder"
+    >
+    <button onclick="setMitgliederSoll()">Soll speichern</button>
+  </div>
+
+  <div class="input-row">
+    <input
+      id="mitgliederIstInput"
+      type="number"
+      min="0"
+      max="9999"
+      step="1"
+      placeholder="Aktuelle Mitglieder"
+    >
+    <button onclick="setMitgliederIst()">Ist speichern</button>
+  </div>
+
+  <div class="button-row">
+    <button onclick="mitgliedPlus()">+1 neues Mitglied</button>
+    <button class="secondary" onclick="mitgliedMinus()">-1 Korrektur</button>
+  </div>
+
+  <div class="small-note" id="mitgliederStatus">
+    Königsträßer Mitglieder: Soll 0 / Ist 0
+  </div>
+</div>
+
+    <div class="card">
       <div class="section-title">Soll-Wert setzen</div>
 
       <div class="input-row">
@@ -691,6 +728,10 @@ const newsTitelInput = document.getElementById("newsTitelInput");
 const newsTextInput = document.getElementById("newsTextInput");
 const newsAutoAusMinutenInput = document.getElementById("newsAutoAusMinutenInput");
 const newsStatusText = document.getElementById("newsStatusText");
+
+const mitgliederSollInput = document.getElementById("mitgliederSollInput");
+const mitgliederIstInput = document.getElementById("mitgliederIstInput");
+const mitgliederStatus = document.getElementById("mitgliederStatus");
 
 
 let aktuelleZapfstellenKonfig = [];
@@ -766,6 +807,60 @@ function newsAnzeigen() {
 
 function newsAusschalten() {
   setNews(false);
+}
+
+async function setMitgliederSoll() {
+  const wert = Number(mitgliederSollInput.value) || 0;
+
+  try {
+    await postJSON("/api/mitglieder", {
+      aktion: "soll",
+      wert
+    });
+
+    zeigeFeedback("Mitglieder-Soll gespeichert.");
+  } catch (err) {
+    zeigeFeedback(err.message, true);
+  }
+}
+
+async function setMitgliederIst() {
+  const wert = Number(mitgliederIstInput.value) || 0;
+
+  try {
+    await postJSON("/api/mitglieder", {
+      aktion: "ist",
+      wert
+    });
+
+    zeigeFeedback("Mitglieder-Ist gespeichert.");
+  } catch (err) {
+    zeigeFeedback(err.message, true);
+  }
+}
+
+async function mitgliedPlus() {
+  try {
+    await postJSON("/api/mitglieder", {
+      aktion: "plus1"
+    });
+
+    zeigeFeedback("Neues Königsträßer Mitglied gezählt.");
+  } catch (err) {
+    zeigeFeedback(err.message, true);
+  }
+}
+
+async function mitgliedMinus() {
+  try {
+    await postJSON("/api/mitglieder", {
+      aktion: "minus1"
+    });
+
+    zeigeFeedback("Mitgliederzahl korrigiert.");
+  } catch (err) {
+    zeigeFeedback(err.message, true);
+  }
 }
 
 async function postJSON(url, daten) {
@@ -1207,6 +1302,19 @@ function updateAnzeige(data) {
 
   if (typeof data.newsTitel === "string" && document.activeElement !== newsTitelInput) {
   newsTitelInput.value = data.newsTitel;
+}
+
+if (mitgliederSollInput && document.activeElement !== mitgliederSollInput) {
+  mitgliederSollInput.value = data.mitgliederSoll || 0;
+}
+
+if (mitgliederIstInput && document.activeElement !== mitgliederIstInput) {
+  mitgliederIstInput.value = data.mitgliederIst || 0;
+}
+
+if (mitgliederStatus) {
+  mitgliederStatus.textContent =
+    `Königsträßer Mitglieder: Soll ${data.mitgliederSoll || 0} / Ist ${data.mitgliederIst || 0}`;
 }
 
 if (typeof data.newsText === "string" && document.activeElement !== newsTextInput) {

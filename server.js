@@ -20,7 +20,7 @@ app.get("/", (req, res) => {
 const DATA_DATEI = process.env.DATA_FILE
   ? path.resolve(process.env.DATA_FILE)
   : path.join(__dirname, "bierometer-data.json");
-  
+
   const DATA_FILE = DATA_DATEI;
 
   
@@ -122,6 +122,9 @@ let newsAutoAusMinuten = 10;
 let newsAutoAusUm = null;
 let newsAutoAusTimer = null;
 let newsTitel = "Wichtige Info";
+
+let mitgliederSoll = 0;
+let mitgliederIst = 0;
 
 let zapfstellen = {};
 let buchungen = [];
@@ -442,11 +445,11 @@ function planeNewsAutoAus() {
 
 function ladeDaten() {
   try {
-    if (!fs.existsSync(DATA_FILE)) {
+    if (!fs.existsSync(DATA_DATEI)) {
       return;
     }
 
-    const daten = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+    const daten = JSON.parse(fs.readFileSync(DATA_DATEI, "utf8"));
 
     setupAbgeschlossen = Boolean(daten.setupAbgeschlossen);
 
@@ -461,38 +464,47 @@ function ladeDaten() {
     turboBis = Number(daten.turboBis) || 0;
     autoAufholLiter = Number(daten.autoAufholLiter) || 0;
     startTime = Number(daten.startTime) || Date.now();
+
     if (Array.isArray(daten.tickerTexte)) {
-  tickerTexte = bereinigeTickerTexte(daten.tickerTexte);
-  tickerText = tickerTexte[0] || "🍺 Hol noch eine Runde!";
-} else if (typeof daten.tickerText === "string") {
-  tickerText = daten.tickerText;
-  tickerTexte = bereinigeTickerTexte(daten.tickerText);
-}
+      tickerTexte = bereinigeTickerTexte(daten.tickerTexte);
+      tickerText = tickerTexte[0] || "🍺 Hol noch eine Runde!";
+    } else if (typeof daten.tickerText === "string") {
+      tickerText = daten.tickerText;
+      tickerTexte = bereinigeTickerTexte(daten.tickerText);
+    }
 
-if (typeof daten.newsAktiv === "boolean") {
-  newsAktiv = daten.newsAktiv;
-}
+    if (typeof daten.newsAktiv === "boolean") {
+      newsAktiv = daten.newsAktiv;
+    }
 
-if (typeof daten.newsTitel === "string") {
-  newsTitel = daten.newsTitel;
-}
+    if (typeof daten.newsTitel === "string") {
+      newsTitel = daten.newsTitel;
+    }
 
-if (typeof daten.newsText === "string") {
-  newsText = daten.newsText;
-}
+    if (typeof daten.newsText === "string") {
+      newsText = daten.newsText;
+    }
 
-if (typeof daten.newsAutoAusMinuten === "number") {
-  newsAutoAusMinuten = Math.max(0, Math.min(120, daten.newsAutoAusMinuten));
-}
+    if (typeof daten.newsAutoAusMinuten === "number") {
+      newsAutoAusMinuten = Math.max(0, Math.min(120, daten.newsAutoAusMinuten));
+    }
 
-if (typeof daten.newsAutoAusUm === "number") {
-  newsAutoAusUm = daten.newsAutoAusUm;
-}
+    if (typeof daten.newsAutoAusUm === "number") {
+      newsAutoAusUm = daten.newsAutoAusUm;
+    }
 
-if (newsAktiv && newsAutoAusUm && Date.now() >= newsAutoAusUm) {
-  newsAktiv = false;
-  newsAutoAusUm = null;
-}
+    if (newsAktiv && newsAutoAusUm && Date.now() >= newsAutoAusUm) {
+      newsAktiv = false;
+      newsAutoAusUm = null;
+    }
+
+    if (typeof daten.mitgliederSoll === "number") {
+      mitgliederSoll = Math.max(0, Math.min(9999, Math.round(daten.mitgliederSoll)));
+    }
+
+    if (typeof daten.mitgliederIst === "number") {
+      mitgliederIst = Math.max(0, Math.min(9999, Math.round(daten.mitgliederIst)));
+    }
 
     if (anzeigeIst > ist) {
       anzeigeIst = ist;
@@ -517,7 +529,7 @@ if (newsAktiv && newsAutoAusUm && Date.now() >= newsAutoAusUm) {
       });
     }
 
-        sichereZapfstellenStruktur();
+    sichereZapfstellenStruktur();
     planeNewsAutoAus();
   } catch (err) {
     console.error("Daten konnten nicht geladen werden:", err.message);
@@ -547,6 +559,9 @@ function speichereDaten() {
       newsText,
       newsAutoAusMinuten,
       newsAutoAusUm,
+
+      mitgliederSoll,
+      mitgliederIst,
 
       zapfstellen,
       buchungen
@@ -991,20 +1006,22 @@ function getStatus() {
     tickerTexte,
 
     newsAktiv,
-newsTitel,
-newsText,
-newsAutoAusMinuten,
-newsAutoAusUm,
-newsAutoAusRestMs: newsAutoAusUm ? Math.max(0, newsAutoAusUm - Date.now()) : null,
-wetter,
+    newsTitel,
+    newsText,
+    newsAutoAusMinuten,
+    newsAutoAusUm,
+    newsAutoAusRestMs: newsAutoAusUm ? Math.max(0, newsAutoAusUm - Date.now()) : null,
+
+    mitgliederSoll,
+    mitgliederIst,
+
+    wetter,
 
     serverTime: Date.now(),
     averageLiterPerMs: getAverageLiterPerMs(),
 
     live: getLiveParameter(),
     aktuelleAnzeigeGeschwindigkeit: berechneAnzeigeGeschwindigkeit(),
-
-    wetter,
 
     zapfstellen,
     zapfstellenPrognose: getZapfstellenPrognose(),
@@ -1563,6 +1580,39 @@ app.post("/api/storno", (req, res) => {
   res.json({
     ok: true,
     storniert: buchung.id,
+    ...getStatus()
+  });
+});
+
+app.post("/api/mitglieder", (req, res) => {
+  const aktion = String(req.body.aktion || "");
+  const wert = Number(req.body.wert);
+
+  if (aktion === "soll") {
+    if (!Number.isFinite(wert) || wert < 0 || wert > 9999) {
+      return res.status(400).send("Ungültiger Soll-Wert.");
+    }
+
+    mitgliederSoll = Math.round(wert);
+  } else if (aktion === "ist") {
+    if (!Number.isFinite(wert) || wert < 0 || wert > 9999) {
+      return res.status(400).send("Ungültiger Ist-Wert.");
+    }
+
+    mitgliederIst = Math.round(wert);
+  } else if (aktion === "plus1") {
+    mitgliederIst = Math.min(9999, mitgliederIst + 1);
+  } else if (aktion === "minus1") {
+    mitgliederIst = Math.max(0, mitgliederIst - 1);
+  } else {
+    return res.status(400).send("Unbekannte Mitglieder-Aktion.");
+  }
+
+  speichereDaten();
+  sendeUpdate();
+
+  res.json({
+    ok: true,
     ...getStatus()
   });
 });
