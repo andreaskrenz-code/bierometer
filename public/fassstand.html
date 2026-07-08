@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Bierometer Fassstand</title>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(circle at top, rgba(255, 212, 0, 0.18), transparent 34%),
+    linear-gradient(180deg, #201407, #070503 70%);
+  color: #fff3b0;
+}
+
+body {
+  padding: 18px;
+}
+
+.header {
+  max-width: 1200px;
+  margin: 0 auto 18px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+h1 {
+  margin: 0;
+  color: #ffd400;
+  font-size: clamp(30px, 4vw, 54px);
+  line-height: 1;
+  text-shadow:
+    3px 3px 0 #000,
+    0 0 18px rgba(255, 212, 0, 0.45);
+}
+
+.subline {
+  margin-top: 8px;
+  color: #d9c178;
+  font-size: 15px;
+}
+
+.statusbox {
+  text-align: right;
+  color: #d9c178;
+  font-size: 14px;
+}
+
+.statusbox strong {
+  color: #ffd400;
+}
+
+.grid {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  border-radius: 22px;
+  padding: 18px;
+  background:
+    linear-gradient(180deg, rgba(255, 230, 90, 0.10), rgba(0, 0, 0, 0.42)),
+    radial-gradient(circle at top, rgba(255, 212, 0, 0.16), rgba(0, 0, 0, 0.74) 68%);
+  border: 2px solid rgba(255, 212, 0, 0.45);
+  box-shadow:
+    0 0 18px rgba(0, 0, 0, 0.75),
+    inset 0 0 14px rgba(255, 212, 0, 0.10);
+}
+
+.card.warnung {
+  border-color: rgba(255, 160, 0, 0.95);
+  box-shadow:
+    0 0 20px rgba(255, 160, 0, 0.25),
+    inset 0 0 14px rgba(255, 160, 0, 0.12);
+}
+
+.card.kritisch {
+  border-color: rgba(255, 55, 55, 0.95);
+  box-shadow:
+    0 0 24px rgba(255, 55, 55, 0.34),
+    inset 0 0 16px rgba(255, 55, 55, 0.18);
+}
+
+.card.leer {
+  border-color: rgba(255, 55, 55, 1);
+  background:
+    linear-gradient(180deg, rgba(255, 30, 30, 0.18), rgba(0, 0, 0, 0.55)),
+    radial-gradient(circle at top, rgba(255, 212, 0, 0.10), rgba(0, 0, 0, 0.8) 70%);
+}
+
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.name {
+  color: #ffd400;
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1.05;
+  text-shadow:
+    2px 2px 0 #000,
+    0 0 12px rgba(255, 212, 0, 0.4);
+}
+
+.stelle {
+  color: #d9c178;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.badge {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(255, 212, 0, 0.35);
+  color: #fff3b0;
+  font-weight: 800;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.rest {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 0 10px;
+}
+
+.rest-zahl {
+  color: #ffd400;
+  font-size: clamp(54px, 9vw, 92px);
+  line-height: 0.95;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  text-shadow:
+    4px 4px 0 #000,
+    0 0 20px rgba(255, 212, 0, 0.55);
+}
+
+.rest-einheit {
+  color: #fff3b0;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.progress-wrap {
+  height: 28px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 212, 0, 0.28);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.75);
+}
+
+.progress {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, #ff4b4b, #ffb000 45%, #ffd400 75%, #fff19a);
+  transition: width 0.4s ease;
+}
+
+.details {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.detail {
+  border-radius: 14px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 212, 0, 0.18);
+}
+
+.label {
+  color: #c9b371;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 5px;
+}
+
+.wert {
+  color: #fff3b0;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.hinweis {
+  margin-top: 14px;
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff3b0;
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.hinweis.ok {
+  border: 1px solid rgba(85, 210, 100, 0.45);
+}
+
+.hinweis.warnung {
+  border: 1px solid rgba(255, 150, 0, 0.75);
+  color: #ffd89a;
+}
+
+.hinweis.kritisch,
+.hinweis.leer {
+  border: 1px solid rgba(255, 70, 70, 0.9);
+  color: #ffb8b8;
+}
+
+.empty {
+  max-width: 900px;
+  margin: 40px auto;
+  border-radius: 22px;
+  padding: 24px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid rgba(255, 212, 0, 0.35);
+}
+
+.footer {
+  max-width: 1200px;
+  margin: 18px auto 0;
+  color: #9f8e5c;
+  font-size: 13px;
+  text-align: center;
+}
+
+/* Handy-Optimierung */
+
+@media (max-width: 700px) {
+  body {
+    padding: 10px;
+  }
+
+  .header {
+    display: block;
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-size: 34px;
+  }
+
+  .subline {
+    font-size: 13px;
+  }
+
+  .statusbox {
+    text-align: left;
+    margin-top: 10px;
+    font-size: 12px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .card {
+    border-radius: 18px;
+    padding: 14px;
+  }
+
+  .card-head {
+    margin-bottom: 8px;
+  }
+
+  .name {
+    font-size: 23px;
+  }
+
+  .stelle {
+    font-size: 12px;
+  }
+
+  .badge {
+    font-size: 12px;
+    padding: 6px 9px;
+  }
+
+  .rest {
+    margin: 4px 0 8px;
+  }
+
+  .rest-zahl {
+    font-size: clamp(56px, 18vw, 82px);
+  }
+
+  .rest-einheit {
+    font-size: 24px;
+  }
+
+  .progress-wrap {
+    height: 24px;
+  }
+
+  .details {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .detail {
+    padding: 8px;
+    border-radius: 12px;
+  }
+
+  .label {
+    font-size: 10px;
+  }
+
+  .wert {
+    font-size: 17px;
+  }
+
+  .hinweis {
+    margin-top: 10px;
+    font-size: 14px;
+    padding: 10px;
+  }
+
+  .footer {
+    font-size: 11px;
+    margin-top: 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  body {
+    padding: 8px;
+  }
+
+  h1 {
+    font-size: 30px;
+  }
+
+  .card {
+    padding: 12px;
+  }
+
+  .card-head {
+    display: block;
+  }
+
+  .badge {
+    display: inline-block;
+    margin-top: 8px;
+  }
+
+  .name {
+    font-size: 21px;
+  }
+
+  .rest-zahl {
+    font-size: clamp(52px, 20vw, 74px);
+  }
+
+  .details {
+    grid-template-columns: 1fr;
+  }
+
+  .wert {
+    font-size: 18px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<header class="header">
+  <div>
+    <h1>Fassstand</h1>
+    <div class="subline">Schneller Überblick für Fasswechsel und Zapfstellen</div>
+  </div>
+
+  <div class="statusbox">
+    <div>Aktualisiert: <strong id="aktualisiert">-</strong></div>
+    <div>Quelle: <strong>/api/status</strong></div>
+  </div>
+</header>
+
+<main class="grid" id="grid"></main>
+
+<div class="empty" id="empty" style="display:none;">
+  Noch keine Zapfstellen gefunden.
+</div>
+
+<div class="footer">
+  Die Anzeige ist eine rechnerische Schätzung aus den Bierometer-Daten. Beim Fasswechsel zählt immer der echte Zapfstellenstand.
+</div>
+
+<script>
+const grid = document.getElementById("grid");
+const empty = document.getElementById("empty");
+const aktualisiert = document.getElementById("aktualisiert");
+
+function zahl(wert) {
+  const n = Number(wert);
+  return Number.isFinite(n) ? n : null;
+}
+
+function ersteZahl(...werte) {
+  for (const wert of werte) {
+    const n = zahl(wert);
+
+    if (n !== null) {
+      return n;
+    }
+  }
+
+  return null;
+}
+
+function escapeHTML(wert) {
+  return String(wert ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function formatLiter(wert) {
+  const n = zahl(wert);
+
+  if (n === null) {
+    return "-";
+  }
+
+  return n.toLocaleString("de-DE", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1
+  });
+}
+
+function formatProzent(wert) {
+  const n = zahl(wert);
+
+  if (n === null) {
+    return "-";
+  }
+
+  return `${Math.round(n)} %`;
+}
+
+function formatUhrzeitJetzt() {
+  return new Date().toLocaleTimeString("de-DE", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+}
+
+function formatDauerAusStunden(stunden) {
+  const n = zahl(stunden);
+
+  if (n === null || n <= 0) {
+    return "-";
+  }
+
+  const minuten = Math.round(n * 60);
+
+  if (minuten < 60) {
+    return `ca. ${minuten} Min.`;
+  }
+
+  const h = Math.floor(minuten / 60);
+  const m = minuten % 60;
+
+  if (m === 0) {
+    return `ca. ${h} Std.`;
+  }
+
+  return `ca. ${h} Std. ${m} Min.`;
+}
+
+function formatZeitpunktAusStunden(stunden) {
+  const n = zahl(stunden);
+
+  if (n === null || n <= 0) {
+    return "-";
+  }
+
+  const zeit = new Date(Date.now() + n * 60 * 60 * 1000);
+
+  return zeit.toLocaleTimeString("de-DE", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function statusKlasse(prozent, restLiter) {
+  const p = zahl(prozent);
+  const r = zahl(restLiter);
+
+  if ((r !== null && r <= 1) || (p !== null && p <= 2)) {
+    return "leer";
+  }
+
+  if ((r !== null && r <= 6) || (p !== null && p <= 15)) {
+    return "kritisch";
+  }
+
+  if ((r !== null && r <= 12) || (p !== null && p <= 30)) {
+    return "warnung";
+  }
+
+  return "ok";
+}
+
+function statusText(klasse) {
+  if (klasse === "leer") {
+    return "Sofort wechseln";
+  }
+
+  if (klasse === "kritisch") {
+    return "Bald wechseln";
+  }
+
+  if (klasse === "warnung") {
+    return "Im Blick behalten";
+  }
+
+  return "Alles gut";
+}
+
+function konfigMap(status) {
+  const map = new Map();
+
+  const konfig = Array.isArray(status.zapfstellenKonfig)
+    ? status.zapfstellenKonfig
+    : [];
+
+  konfig.forEach((z, index) => {
+    const stelle = Number(z.stelle ?? z.id ?? index + 1);
+    map.set(stelle, z);
+  });
+
+  return map;
+}
+
+function baueAusPrognose(status) {
+  const liste = Array.isArray(status.zapfstellenPrognose)
+    ? status.zapfstellenPrognose
+    : [];
+
+  const map = konfigMap(status);
+
+  return liste.map((p, index) => {
+    const stelle = Number(p.stelle ?? p.id ?? index + 1);
+    const konfig = map.get(stelle) || {};
+
+    let fassLiter = ersteZahl(
+      p.fassLiter,
+      p.fassGroesse,
+      p.gesamtLiter,
+      p.maxLiter,
+      p.liter,
+      p.kapazitaet
+    );
+
+    let restLiter = ersteZahl(
+      p.restLiter,
+      p.rest,
+      p.literRest,
+      p.verbleibend,
+      p.fuellstandLiter,
+      p.aktuellerRest
+    );
+
+    const verbraucht = ersteZahl(
+      p.verbraucht,
+      p.anzeigeLiter,
+      p.verbrauch,
+      p.bereitsVerbraucht
+    );
+
+    if (restLiter === null && fassLiter !== null && verbraucht !== null) {
+      restLiter = Math.max(0, fassLiter - verbraucht);
+    }
+
+    if (fassLiter === null && restLiter !== null && verbraucht !== null) {
+      fassLiter = restLiter + verbraucht;
+    }
+
+    let prozent = ersteZahl(
+      p.prozent,
+      p.restProzent,
+      p.fuellstandProzent
+    );
+
+    if (prozent === null && fassLiter && restLiter !== null) {
+      prozent = Math.max(0, Math.min(100, (restLiter / fassLiter) * 100));
+    }
+
+    const literProStunde = ersteZahl(
+      p.literProStunde,
+      p.speed,
+      p.geschwindigkeit,
+      p.rateLiterProStunde
+    );
+
+    return {
+      stelle,
+      name: String(p.name || p.titel || konfig.name || `Zapfstelle ${stelle}`),
+      fassLiter,
+      restLiter,
+      verbraucht,
+      prozent,
+      literProStunde,
+      prognoseText: p.prognoseText || p.wechselText || p.hinweis || "",
+      quelle: "prognose"
+    };
+  });
+}
+
+function baueAusZapfstellen(status) {
+  const zapfstellen = status.zapfstellen && typeof status.zapfstellen === "object"
+    ? status.zapfstellen
+    : {};
+
+  const map = konfigMap(status);
+
+  return Object.entries(zapfstellen).map(([key, z]) => {
+    const stelle = Number(z.stelle ?? key);
+    const konfig = map.get(stelle) || {};
+
+    const fassLiter = ersteZahl(
+      z.liter,
+      z.fassLiter,
+      z.fassGroesse,
+      z.gesamtLiter
+    );
+
+    const verbraucht = ersteZahl(
+      z.anzeigeLiter,
+      z.verbraucht,
+      z.verbrauch
+    );
+
+    const restLiter = fassLiter !== null && verbraucht !== null
+      ? Math.max(0, fassLiter - verbraucht)
+      : ersteZahl(z.restLiter, z.rest, z.fuellstandLiter);
+
+    const prozent = fassLiter && restLiter !== null
+      ? Math.max(0, Math.min(100, (restLiter / fassLiter) * 100))
+      : null;
+
+    return {
+      stelle,
+      name: String(z.name || konfig.name || `Zapfstelle ${stelle}`),
+      fassLiter,
+      restLiter,
+      verbraucht,
+      prozent,
+      literProStunde: null,
+      prognoseText: "",
+      quelle: "zapfstellen"
+    };
+  });
+}
+
+function ermittleFassstaende(status) {
+  const ausPrognose = baueAusPrognose(status);
+
+  if (ausPrognose.length > 0) {
+    return ausPrognose;
+  }
+
+  return baueAusZapfstellen(status);
+}
+
+function ergaenzeSchaetzung(liste, status) {
+  const aktive = liste.filter(item => {
+    return zahl(item.restLiter) !== null && item.restLiter > 0;
+  });
+
+  const gesamtSpeed = ersteZahl(
+    status.aktuelleAnzeigeGeschwindigkeit,
+    status.literProStunde
+  );
+
+  return liste.map(item => {
+    let literProStunde = zahl(item.literProStunde);
+
+    if ((literProStunde === null || literProStunde <= 0) && gesamtSpeed && aktive.length > 0) {
+      literProStunde = gesamtSpeed / aktive.length;
+    }
+
+    let stundenBisLeer = null;
+
+    if (literProStunde && literProStunde > 0 && item.restLiter !== null) {
+      stundenBisLeer = item.restLiter / literProStunde;
+    }
+
+    return {
+      ...item,
+      literProStunde,
+      stundenBisLeer
+    };
+  });
+}
+
+function render(status) {
+  const liste = ergaenzeSchaetzung(
+    ermittleFassstaende(status),
+    status
+  ).sort((a, b) => a.stelle - b.stelle);
+
+  aktualisiert.textContent = formatUhrzeitJetzt();
+
+  grid.innerHTML = "";
+
+  if (liste.length === 0) {
+    empty.style.display = "block";
+    return;
+  }
+
+  empty.style.display = "none";
+
+  liste.forEach(item => {
+    const klasse = statusKlasse(item.prozent, item.restLiter);
+    const prozent = Math.max(0, Math.min(100, zahl(item.prozent) ?? 0));
+
+    const wechselIn = formatDauerAusStunden(item.stundenBisLeer);
+    const wechselUm = formatZeitpunktAusStunden(item.stundenBisLeer);
+
+    let hinweis = statusText(klasse);
+
+    if (item.prognoseText) {
+      hinweis = item.prognoseText;
+    } else if (wechselIn !== "-") {
+      hinweis = `Nächster Fasswechsel ${wechselIn}, etwa um ${wechselUm} Uhr.`;
+    }
+
+    const card = document.createElement("section");
+    card.className = `card ${klasse}`;
+
+    card.innerHTML = `
+      <div class="card-head">
+        <div>
+          <div class="name">${escapeHTML(item.name)}</div>
+          <div class="stelle">Zapfstelle ${escapeHTML(item.stelle)}</div>
+        </div>
+        <div class="badge">${escapeHTML(statusText(klasse))}</div>
+      </div>
+
+      <div class="rest">
+        <div class="rest-zahl">${formatLiter(item.restLiter)}</div>
+        <div class="rest-einheit">L</div>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress" style="width:${prozent}%"></div>
+      </div>
+
+      <div class="details">
+        <div class="detail">
+          <div class="label">Füllstand</div>
+          <div class="wert">${formatProzent(item.prozent)}</div>
+        </div>
+
+        <div class="detail">
+          <div class="label">Fassgröße</div>
+          <div class="wert">${item.fassLiter === null ? "-" : `${formatLiter(item.fassLiter)} L`}</div>
+        </div>
+
+        <div class="detail">
+          <div class="label">Wechsel in</div>
+          <div class="wert">${escapeHTML(wechselIn)}</div>
+        </div>
+
+        <div class="detail">
+          <div class="label">Etwa um</div>
+          <div class="wert">${escapeHTML(wechselUm === "-" ? "-" : `${wechselUm} Uhr`)}</div>
+        </div>
+      </div>
+
+      <div class="hinweis ${klasse}">
+        ${escapeHTML(hinweis)}
+      </div>
+    `;
+
+    grid.appendChild(card);
+  });
+}
+
+async function ladeStatus() {
+  try {
+    const antwort = await fetch("/api/status", {
+      cache: "no-store"
+    });
+
+    if (!antwort.ok) {
+      throw new Error("Status konnte nicht geladen werden.");
+    }
+
+    const status = await antwort.json();
+    render(status);
+  } catch (err) {
+    aktualisiert.textContent = "Fehler";
+
+    grid.innerHTML = `
+      <div class="empty" style="display:block;">
+        ${escapeHTML(err.message)}
+      </div>
+    `;
+  }
+}
+
+ladeStatus();
+
+setInterval(ladeStatus, 5000);
+
+if (window.io) {
+  const socket = io();
+
+  socket.on("connect", ladeStatus);
+  socket.on("update", render);
+  socket.on("status", render);
+  socket.on("daten", render);
+}
+</script>
+
+</body>
+</html>

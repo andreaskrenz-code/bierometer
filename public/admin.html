@@ -12,6 +12,50 @@
   box-sizing: border-box;
 }
 
+
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 11px 16px;
+  border-radius: 10px;
+
+  background: #ffd400;
+  color: #211400;
+
+  font-weight: 800;
+  text-decoration: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.button-link:hover {
+  filter: brightness(1.08);
+}
+
+<div class="card">
+  <div class="section-title">Schnellzugriff</div>
+
+  <div class="button-row">
+    <a class="button-link" href="/fassstand.html" target="_blank">
+      Fassstände öffnen
+    </a>
+
+    <a class="button-link" href="/qrcodes.html" target="_blank">
+      QR-Codes öffnen
+    </a>
+
+    <a class="button-link" href="/display.html" target="_blank">
+      Display öffnen
+    </a>
+  </div>
+
+  <div class="small-note">
+    Die Seiten öffnen sich in einem neuen Tab.
+  </div>
+</div>
+
 textarea {
   width: 100%;
   min-height: 90px;
@@ -973,6 +1017,8 @@ function renderQuickLinks(zapfstellenKonfig) {
 
   quickGrid.innerHTML = `
     <button class="secondary" onclick="openPage('/display.html')">Anzeige öffnen</button>
+    <button class="secondary" onclick="openPage('/fassstand.html')">Fassstände öffnen</button>
+    <button class="secondary" onclick="openPage('/qrcodes.html')">QR-Codes öffnen</button>
   `;
 
   quickGrid.innerHTML += zapfstellenKonfig.map(z => {

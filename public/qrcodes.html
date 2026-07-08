@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Bierometer QR-Codes</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 24px;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f3f0e8;
+  color: #1f1a12;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 34px;
+}
+
+h2 {
+  margin: 34px 0 14px;
+  font-size: 26px;
+}
+
+.hinweis {
+  margin: 0 0 24px;
+  color: #5c5548;
+}
+
+.toolbar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+button {
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  background: #2b2112;
+  color: #ffd866;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(1.08);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+.card {
+  background: #fff;
+  border: 8px solid #111;
+  border-radius: 22px;
+  padding: 16px;
+  text-align: center;
+  box-shadow:
+    0 8px 20px rgba(0,0,0,0.16),
+    inset 0 0 0 2px rgba(255,255,255,0.5);
+  overflow: hidden;
+}
+
+.farbkopf {
+  width: calc(100% + 32px);
+  height: 28px;
+  margin: -16px -16px 16px;
+}
+
+.titel {
+  font-size: 26px;
+  font-weight: 900;
+  margin-bottom: 4px;
+}
+
+.untertitel {
+  min-height: 22px;
+  color: #665d4d;
+  margin-bottom: 14px;
+  font-weight: 700;
+}
+
+.qr {
+  width: 220px;
+  height: 220px;
+  max-width: 100%;
+  image-rendering: crisp-edges;
+  background: white;
+  padding: 8px;
+  border-radius: 12px;
+}
+
+.url {
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.3;
+  word-break: break-all;
+  color: #5c5548;
+}
+
+.farbkarte {
+  min-height: 230px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.farbkarte .farbname {
+  font-size: 22px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+
+.farbkarte .zapfstelle-gross {
+  font-size: 42px;
+  line-height: 1;
+  font-weight: 900;
+  margin-bottom: 12px;
+}
+
+.farbkarte .name-gross {
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 900;
+}
+
+.farbkarte .hinweis-klein {
+  margin-top: 18px;
+  font-size: 15px;
+  color: #5c5548;
+  font-weight: 700;
+}
+
+.print-hinweis {
+  margin-top: 24px;
+  color: #5c5548;
+  font-size: 14px;
+}
+
+@media print {
+  body {
+    background: white;
+    padding: 10mm;
+  }
+
+  .toolbar,
+  .hinweis,
+  .print-hinweis {
+    display: none;
+  }
+
+  h1 {
+    font-size: 24px;
+    margin-bottom: 8mm;
+  }
+
+  h2 {
+    page-break-before: auto;
+    font-size: 20px;
+    margin: 8mm 0 5mm;
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8mm;
+  }
+
+  .card {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+
+  .qr {
+    width: 175px;
+    height: 175px;
+  }
+
+  .farbkarte {
+    min-height: 170px;
+  }
+
+  .farbkarte .zapfstelle-gross {
+    font-size: 34px;
+  }
+
+  .farbkarte .name-gross {
+    font-size: 25px;
+  }
+}
+
+@media (max-width: 700px) {
+  body {
+    padding: 14px;
+  }
+
+  h1 {
+    font-size: 28px;
+  }
+
+  h2 {
+    font-size: 22px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .qr {
+    width: 210px;
+    height: 210px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<h1>Bierometer QR-Codes</h1>
+<p class="hinweis">
+  QR-Codes zum Scannen und passende Farbkarten für die Zapfhähne.
+</p>
+
+<div class="toolbar">
+  <button onclick="window.print()">Drucken</button>
+  <button onclick="ladeQRCodes()">Neu laden</button>
+</div>
+
+<h2>QR-Codes zum Scannen</h2>
+<div class="grid" id="qrGrid"></div>
+
+<h2>Farbkarten für die Zapfhähne ohne QR-Code</h2>
+<div class="grid" id="farbGrid"></div>
+
+<p class="print-hinweis">
+  Tipp: Beim Drucken „Hintergrundgrafiken“ aktivieren, damit die Farben sichtbar bleiben.
+</p>
+
+<script>
+const qrGrid = document.getElementById("qrGrid");
+const farbGrid = document.getElementById("farbGrid");
+
+const zapfstellenFarben = [
+  { name: "Rot",     hex: "8b0000" },
+  { name: "Blau",    hex: "005f99" },
+  { name: "Grün",    hex: "0b6b2b" },
+  { name: "Orange",  hex: "b35400" },
+  { name: "Violett", hex: "4b2e83" },
+  { name: "Pink",    hex: "8a0066" },
+  { name: "Petrol",  hex: "006b66" },
+  { name: "Gold",    hex: "6b5b00" }
+];
+
+function absoluteUrl(pfad) {
+  return `${window.location.origin}${pfad}`;
+}
+
+function qrUrl(url) {
+  return "https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=14&color=111111&bgcolor=ffffff&data=" +
+    encodeURIComponent(url);
+}
+
+function escapeHTML(wert) {
+  return String(wert || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function erstelleQRKarte({ titel, untertitel, url, farbe }) {
+  const card = document.createElement("div");
+  card.className = "card";
+
+  const hex = farbe?.hex || "111111";
+
+  card.style.borderColor = `#${hex}`;
+
+  card.innerHTML = `
+    <div class="farbkopf" style="background:#${hex};"></div>
+    <div class="titel">${escapeHTML(titel)}</div>
+    <div class="untertitel">${escapeHTML(untertitel || "")}</div>
+    <img class="qr" src="${qrUrl(url)}" alt="QR-Code für ${escapeHTML(titel)}">
+    <div class="url">${escapeHTML(url)}</div>
+  `;
+
+  qrGrid.appendChild(card);
+}
+
+function erstelleFarbkarte({ titel, untertitel, farbe, nummer }) {
+  const card = document.createElement("div");
+  card.className = "card farbkarte";
+
+  const hex = farbe?.hex || "111111";
+  const farbname = farbe?.name || "Farbe";
+
+  card.style.borderColor = `#${hex}`;
+
+  card.innerHTML = `
+    <div class="farbkopf" style="background:#${hex};"></div>
+    <div class="farbname" style="color:#${hex};">${escapeHTML(farbname)}</div>
+    <div class="zapfstelle-gross">Zapfstelle ${escapeHTML(nummer)}</div>
+    <div class="name-gross">${escapeHTML(titel)}</div>
+    <div class="hinweis-klein">${escapeHTML(untertitel || "Karte am Zapfhahn anbringen")}</div>
+  `;
+
+  farbGrid.appendChild(card);
+}
+
+function erstelleSystemKarte({ titel, untertitel, url, hex }) {
+  erstelleQRKarte({
+    titel,
+    untertitel,
+    url,
+    farbe: {
+      name: titel,
+      hex
+    }
+  });
+}
+
+async function ladeStatus() {
+  const res = await fetch("/api/status", {
+    cache: "no-store"
+  });
+
+  if (!res.ok) {
+    throw new Error("Status konnte nicht geladen werden.");
+  }
+
+  return await res.json();
+}
+
+function ladeFallbackZapfstellen() {
+  [
+    { nummer: 1, name: "Zapfstelle 1" },
+    { nummer: 2, name: "Zapfstelle 2" }
+  ].forEach((z, index) => {
+    const farbe = zapfstellenFarben[index % zapfstellenFarben.length];
+
+    erstelleQRKarte({
+      titel: z.name,
+      untertitel: `${farbe.name} · Handy-Seite`,
+      url: absoluteUrl(`/handy.html?stelle=${z.nummer}`),
+      farbe
+    });
+
+    erstelleFarbkarte({
+      titel: z.name,
+      untertitel: "Karte am Zapfhahn anbringen",
+      nummer: z.nummer,
+      farbe
+    });
+  });
+}
+
+async function ladeQRCodes() {
+  qrGrid.innerHTML = "";
+  farbGrid.innerHTML = "";
+
+  erstelleSystemKarte({
+    titel: "Admin",
+    untertitel: "Nur für Orga / Theke",
+    url: absoluteUrl("/admin.html"),
+    hex: "111111"
+  });
+
+  erstelleSystemKarte({
+    titel: "Display",
+    untertitel: "OBS / Anzeige",
+    url: absoluteUrl("/display.html"),
+    hex: "005f99"
+  });
+
+  erstelleSystemKarte({
+    titel: "Fassstände",
+    untertitel: "Nur schauen / Fasswechsel",
+    url: absoluteUrl("/fassstand.html"),
+    hex: "0b6b2b"
+  });
+
+  erstelleSystemKarte({
+    titel: "QR-Codes",
+    untertitel: "Diese Übersicht",
+    url: absoluteUrl("/qrcodes.html"),
+    hex: "4b2e83"
+  });
+
+  try {
+    const status = await ladeStatus();
+
+    const konfig = Array.isArray(status.zapfstellenKonfig)
+      ? status.zapfstellenKonfig
+      : [];
+
+    const aktiveZapfstellen = konfig.filter(z => z && z.aktiv !== false);
+
+    if (aktiveZapfstellen.length === 0) {
+      ladeFallbackZapfstellen();
+      return;
+    }
+
+    aktiveZapfstellen.forEach((z, index) => {
+      const nummer = Number(z.stelle || z.id || index + 1);
+      const name = String(z.name || `Zapfstelle ${nummer}`);
+      const farbe = zapfstellenFarben[index % zapfstellenFarben.length];
+
+      erstelleQRKarte({
+        titel: name,
+        untertitel: `${farbe.name} · Zapfstelle ${nummer}`,
+        url: absoluteUrl(`/handy.html?stelle=${nummer}`),
+        farbe
+      });
+
+      erstelleFarbkarte({
+        titel: name,
+        untertitel: "Karte am Zapfhahn anbringen",
+        nummer,
+        farbe
+      });
+    });
+  } catch (err) {
+    ladeFallbackZapfstellen();
+  }
+}
+
+ladeQRCodes();
+</script>
+
+</body>
+</html>
