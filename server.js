@@ -20,6 +20,8 @@ app.get("/", (req, res) => {
 const DATA_DATEI = process.env.DATA_FILE
   ? path.resolve(process.env.DATA_FILE)
   : path.join(__dirname, "bierometer-data.json");
+  
+  const DATA_FILE = DATA_DATEI;
 
   
 
