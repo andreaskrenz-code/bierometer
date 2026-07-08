@@ -411,6 +411,22 @@ button.log-storno {
     <textarea id="newsTextInput" maxlength="220" rows="4" placeholder="z.B. Antreten um 18:30 Uhr am Festzelt"></textarea>
   </div>
 
+  <div class="input-row">
+    <label for="newsAutoAusMinutenInput">Automatisch ausschalten nach Minuten</label>
+    <input
+      id="newsAutoAusMinutenInput"
+      type="number"
+      min="0"
+      max="120"
+      step="1"
+      value="10"
+    >
+  </div>
+
+  <div class="small-note">
+    0 bedeutet: bleibt an, bis du manuell ausschaltest. Beispiel: 6 = nach 6 Minuten aus.
+  </div>
+
   <div class="button-row">
     <button onclick="newsAnzeigen()">Nachricht anzeigen</button>
     <button class="secondary" onclick="newsAusschalten()">Normale Anzeige weiterlaufen lassen</button>
@@ -629,6 +645,7 @@ const quickGrid = document.getElementById("quickGrid");
 const tickerInput = document.getElementById("tickerInput");
 const newsTitelInput = document.getElementById("newsTitelInput");
 const newsTextInput = document.getElementById("newsTextInput");
+const newsAutoAusMinutenInput = document.getElementById("newsAutoAusMinutenInput");
 const newsStatusText = document.getElementById("newsStatusText");
 
 
@@ -679,12 +696,14 @@ function zeigeFeedback(text, istFehler = false) {
 async function setNews(aktiv) {
   const titel = newsTitelInput.value.trim() || "Wichtige Info";
   const text = newsTextInput.value.trim();
+  const autoAusMinuten = Number(newsAutoAusMinutenInput.value) || 0;
 
   try {
     await postJSON("/api/news", {
       aktiv,
       titel,
-      text
+      text,
+      autoAusMinuten
     });
 
     if (aktiv) {
@@ -1141,14 +1160,22 @@ function updateAnzeige(data) {
   }
 
   if (typeof data.newsTitel === "string" && document.activeElement !== newsTitelInput) {
-    newsTitelInput.value = data.newsTitel;
-  }
+  newsTitelInput.value = data.newsTitel;
+}
 
-  if (typeof data.newsText === "string" && document.activeElement !== newsTextInput) {
-    newsTextInput.value = data.newsText;
-  }
+if (typeof data.newsText === "string" && document.activeElement !== newsTextInput) {
+  newsTextInput.value = data.newsText;
+}
 
-  if (typeof data.newsAktiv === "boolean") {
+if (
+  typeof data.newsAutoAusMinuten === "number" &&
+  newsAutoAusMinutenInput &&
+  document.activeElement !== newsAutoAusMinutenInput
+) {
+  newsAutoAusMinutenInput.value = data.newsAutoAusMinuten;
+}
+
+if (typeof data.newsAktiv === "boolean") {
     if (data.newsAktiv) {
       newsStatusText.textContent = "Wichtige Nachricht ist AKTIV und liegt über der normalen Anzeige.";
     } else {

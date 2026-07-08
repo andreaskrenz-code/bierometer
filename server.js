@@ -107,8 +107,12 @@ let tickerTexte = [
 ];
 
 let newsAktiv = false;
-let newsTitel = "Wichtige Info";
 let newsText = "";
+
+let newsAutoAusMinuten = 10;
+let newsAutoAusUm = null;
+let newsAutoAusTimer = null;
+let newsTitel = "Wichtige Info";
 
 let zapfstellen = {};
 let buchungen = [];
@@ -395,6 +399,38 @@ function berechneGewichtungsInfo() {
   return info;
 }
 
+function planeNewsAutoAus() {
+  if (newsAutoAusTimer) {
+    clearTimeout(newsAutoAusTimer);
+    newsAutoAusTimer = null;
+  }
+
+  if (!newsAktiv || !newsAutoAusUm) {
+    return;
+  }
+
+  const restMs = newsAutoAusUm - Date.now();
+
+  if (restMs <= 0) {
+    newsAktiv = false;
+    newsAutoAusUm = null;
+
+    speichereDaten();
+    sendeUpdate();
+    return;
+  }
+
+  newsAutoAusTimer = setTimeout(() => {
+    newsAktiv = false;
+    newsAutoAusUm = null;
+    newsAutoAusTimer = null;
+
+    speichereDaten();
+    sendeUpdate();
+  }, restMs);
+}
+
+
 function ladeDaten() {
   try {
     if (!fs.existsSync(DATA_FILE)) {
@@ -436,6 +472,19 @@ if (typeof daten.newsText === "string") {
   newsText = daten.newsText;
 }
 
+if (typeof daten.newsAutoAusMinuten === "number") {
+  newsAutoAusMinuten = Math.max(0, Math.min(120, daten.newsAutoAusMinuten));
+}
+
+if (typeof daten.newsAutoAusUm === "number") {
+  newsAutoAusUm = daten.newsAutoAusUm;
+}
+
+if (newsAktiv && newsAutoAusUm && Date.now() >= newsAutoAusUm) {
+  newsAktiv = false;
+  newsAutoAusUm = null;
+}
+
     if (anzeigeIst > ist) {
       anzeigeIst = ist;
     }
@@ -459,7 +508,8 @@ if (typeof daten.newsText === "string") {
       });
     }
 
-    sichereZapfstellenStruktur();
+        sichereZapfstellenStruktur();
+    planeNewsAutoAus();
   } catch (err) {
     console.error("Daten konnten nicht geladen werden:", err.message);
   }
@@ -482,8 +532,11 @@ function speichereDaten() {
       tickerText,
       tickerTexte,
       newsAktiv,
-      newsTitel,
-      newsText,
+newsTitel,
+newsText,
+newsAutoAusMinuten,
+newsAutoAusUm,
+
 
       zapfstellen,
       buchungen
@@ -922,10 +975,12 @@ function getStatus() {
     tickerTexte,
 
     newsAktiv,
-    newsTitel,
-    newsText,
-
-    wetter,
+newsTitel,
+newsText,
+newsAutoAusMinuten,
+newsAutoAusUm,
+newsAutoAusRestMs: newsAutoAusUm ? Math.max(0, newsAutoAusUm - Date.now()) : null,
+wetter,
 
     serverTime: Date.now(),
     averageLiterPerMs: getAverageLiterPerMs(),
@@ -1244,6 +1299,16 @@ app.post("/api/news", (req, res) => {
   let titel = String(req.body.titel || "Wichtige Info").trim();
   let text = String(req.body.text || "").trim();
 
+  let autoAusMinuten = Number(
+    req.body.autoAusMinuten ?? newsAutoAusMinuten
+  );
+
+  if (!Number.isFinite(autoAusMinuten)) {
+    autoAusMinuten = newsAutoAusMinuten;
+  }
+
+  autoAusMinuten = Math.max(0, Math.min(120, autoAusMinuten));
+
   if (!titel) {
     titel = "Wichtige Info";
   }
@@ -1263,7 +1328,15 @@ app.post("/api/news", (req, res) => {
   newsAktiv = aktiv;
   newsTitel = titel;
   newsText = text;
+  newsAutoAusMinuten = autoAusMinuten;
 
+  if (newsAktiv && newsAutoAusMinuten > 0) {
+    newsAutoAusUm = Date.now() + (newsAutoAusMinuten * 60 * 1000);
+  } else {
+    newsAutoAusUm = null;
+  }
+
+  planeNewsAutoAus();
   speichereDaten();
   sendeUpdate();
 
