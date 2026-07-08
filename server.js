@@ -21,6 +21,11 @@ const DATA_DATEI = process.env.DATA_FILE
   ? path.resolve(process.env.DATA_FILE)
   : path.join(__dirname, "bierometer-data.json");
 
+  
+
+  console.log("Bierometer Daten-Datei:", DATA_DATEI);
+console.log("DATA_FILE Environment:", process.env.DATA_FILE || "nicht gesetzt");
+
 const FASSGROESSEN = [30, 50];
 
 const LITER_PRO_PERSON_PRO_STUNDE = 0.5;
@@ -531,14 +536,15 @@ function speichereDaten() {
       autoAufholLiter,
       startTime,
       wetter,
+
       tickerText,
       tickerTexte,
-      newsAktiv,
-newsTitel,
-newsText,
-newsAutoAusMinuten,
-newsAutoAusUm,
 
+      newsAktiv,
+      newsTitel,
+      newsText,
+      newsAutoAusMinuten,
+      newsAutoAusUm,
 
       zapfstellen,
       buchungen
@@ -546,11 +552,11 @@ newsAutoAusUm,
 
     const datenOrdner = path.dirname(DATA_DATEI);
 
-if (!fs.existsSync(datenOrdner)) {
-  fs.mkdirSync(datenOrdner, { recursive: true });
-}
-    
-    fs.writeFileSync(DATA_FILE, JSON.stringify(daten, null, 2));
+    if (!fs.existsSync(datenOrdner)) {
+      fs.mkdirSync(datenOrdner, { recursive: true });
+    }
+
+    fs.writeFileSync(DATA_DATEI, JSON.stringify(daten, null, 2));
   } catch (err) {
     console.error("Daten konnten nicht gespeichert werden:", err.message);
   }
