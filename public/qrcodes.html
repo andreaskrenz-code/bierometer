@@ -152,53 +152,125 @@ button:hover {
 }
 
 @media print {
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   body {
-    background: white;
-    padding: 10mm;
+    background: #f3f0e8 !important;
+    padding: 12mm;
+    color: #1f1a12;
   }
 
   .toolbar,
   .hinweis,
   .print-hinweis {
-    display: none;
+    display: none !important;
   }
 
   h1 {
-    font-size: 24px;
-    margin-bottom: 8mm;
+    font-size: 34px;
+    margin: 0 0 8px;
   }
 
   h2 {
-    page-break-before: auto;
-    font-size: 20px;
-    margin: 8mm 0 5mm;
+    font-size: 26px;
+    margin: 28px 0 14px;
+    page-break-after: avoid;
   }
 
   .grid {
+    display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 8mm;
+    gap: 12mm;
   }
 
   .card {
+    background: #fff !important;
+    border-width: 8px !important;
+    border-style: solid !important;
+    border-radius: 22px !important;
+    padding: 16px !important;
+    text-align: center;
+    box-shadow:
+      0 8px 20px rgba(0,0,0,0.16),
+      inset 0 0 0 2px rgba(255,255,255,0.5) !important;
+    overflow: hidden;
     break-inside: avoid;
-    box-shadow: none;
+    page-break-inside: avoid;
+  }
+
+  .farbkopf {
+    width: calc(100% + 32px) !important;
+    height: 28px !important;
+    margin: -16px -16px 16px !important;
+  }
+
+  .titel {
+    font-size: 26px !important;
+    font-weight: 900 !important;
+    margin-bottom: 4px !important;
+  }
+
+  .untertitel {
+    min-height: 22px;
+    color: #665d4d !important;
+    margin-bottom: 14px !important;
+    font-weight: 700 !important;
   }
 
   .qr {
-    width: 175px;
-    height: 175px;
+    width: 220px !important;
+    height: 220px !important;
+    max-width: 100%;
+    image-rendering: crisp-edges;
+    background: white !important;
+    padding: 8px !important;
+    border-radius: 12px !important;
+  }
+
+  .url {
+    margin-top: 12px !important;
+    font-size: 12px !important;
+    line-height: 1.3;
+    word-break: break-all;
+    color: #5c5548 !important;
   }
 
   .farbkarte {
-    min-height: 170px;
+    min-height: 230px !important;
+    display: flex !important;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .farbkarte .farbname {
+    font-size: 22px !important;
+    font-weight: 900 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px !important;
   }
 
   .farbkarte .zapfstelle-gross {
-    font-size: 34px;
+    font-size: 42px !important;
+    line-height: 1;
+    font-weight: 900 !important;
+    margin-bottom: 12px !important;
   }
 
   .farbkarte .name-gross {
-    font-size: 25px;
+    font-size: 30px !important;
+    line-height: 1.1;
+    font-weight: 900 !important;
+  }
+
+  .farbkarte .hinweis-klein {
+    margin-top: 18px !important;
+    font-size: 15px !important;
+    color: #5c5548 !important;
+    font-weight: 700 !important;
   }
 }
 
